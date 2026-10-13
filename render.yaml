@@ -1,0 +1,26 @@
+# Render web service for the Next.js dashboard.
+# Connect this repo, then fill the sync:false keys in the Render dashboard before the first build.
+services:
+  - type: web
+    name: retainer-dashboard
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: SUPABASE_BUCKET
+        value: dashboard-data
+      - key: DASHBOARD_DATA_SOURCE
+        value: api
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: EVERHOUR_API_KEY
+        sync: false
+      - key: MONDAY_API_TOKEN
+        sync: false
+      - key: MONDAY_BOARD_IDS
+        sync: false
