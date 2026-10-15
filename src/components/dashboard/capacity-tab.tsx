@@ -9,16 +9,13 @@ import {
   LineChart,
   ReferenceLine,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import { ChartBox, Metric, SimpleTable } from "./bits";
+import { ChartTooltip, series, seriesColor, tick } from "./charts";
 import { hrs0, hrs1, pct1, sumNum } from "./format";
 import type { View } from "./view";
-
-const axis = { fontSize: 11, fill: "#737373" };
-const palette = ["#44403c", "#2563eb", "#16a34a", "#ca8a04", "#9333ea", "#ea580c", "#0891b2", "#be123c"];
 
 export function CapacityTab({ view }: { view: View }) {
   const monthRows = view.payload.capacity.filter((r) => r.month === view.asOf);
@@ -47,29 +44,29 @@ export function CapacityTab({ view }: { view: View }) {
       <div className="grid gap-3 xl:grid-cols-2">
         <ChartBox title={`Demand vs capacity by discipline – ${view.asOf}`}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={monthRows} margin={{ top: 8, right: 8, left: 0, bottom: 24 }}>
-              <CartesianGrid stroke="#eee" vertical={false} />
-              <XAxis dataKey="discipline" tick={axis} interval={0} angle={-25} textAnchor="end" height={60} />
-              <YAxis tick={axis} width={40} />
-              <Tooltip />
+            <BarChart data={monthRows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+              <CartesianGrid stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="discipline" tick={tick} interval={0} angle={-25} textAnchor="end" height={64} />
+              <YAxis tick={tick} width={40} />
+              <ChartTooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="capacity_hours" name="Capacity" fill="#bbf7d0" />
-              <Bar dataKey="client_hours_planned" name="Planned" fill="#6d28d9" />
-              <Bar dataKey="client_hours_actual" name="Actual" fill="#2563eb" />
+              <Bar dataKey="capacity_hours" name="Capacity" fill={series.capacity} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="client_hours_planned" name="Planned" fill={series.planned} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="client_hours_actual" name="Actual" fill={series.actual} radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartBox>
         <ChartBox title="Planned load % of capacity">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={lineData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="#eee" vertical={false} />
-              <XAxis dataKey="month" tick={axis} />
-              <YAxis tick={axis} width={36} />
-              <Tooltip />
+              <CartesianGrid stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="month" tick={tick} />
+              <YAxis tick={tick} width={40} unit="%" />
+              <ChartTooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <ReferenceLine y={100} stroke="#dc2626" strokeDasharray="3 3" />
+              <ReferenceLine y={100} stroke="var(--destructive)" strokeDasharray="3 3" />
               {disciplines.map((d, i) => (
-                <Line key={d} dataKey={d} stroke={palette[i % palette.length]} dot={false} strokeWidth={2} />
+                <Line key={d} dataKey={d} stroke={seriesColor(i)} dot={false} strokeWidth={2} />
               ))}
             </LineChart>
           </ResponsiveContainer>

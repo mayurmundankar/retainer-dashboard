@@ -13,16 +13,14 @@ import {
   ResponsiveContainer,
   Scatter,
   ScatterChart,
-  Tooltip,
   XAxis,
   YAxis,
   ZAxis,
 } from "recharts";
 import { ChartBox, Metric, SectionTitle, SimpleTable, StatusBadge } from "./bits";
+import { ChartTooltip, series, tick } from "./charts";
 import { downloadFact, hrs0, hrs1, pct1, signedPct, statusColor, statusLabel, sumMin, sumNum } from "./format";
 import type { View } from "./view";
-
-const axis = { fontSize: 11, fill: "#737373" };
 
 export function PortfolioTab({ view }: { view: View }) {
   const rows = [...view.monthRows].sort((a, b) => {
@@ -63,7 +61,7 @@ export function PortfolioTab({ view }: { view: View }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 xl:grid-cols-7">
         <Metric label="Contracted" value={hrs0(contracted)} />
         <Metric label="Allocated" value={hrs0(allocated)} hint="Seasonal allocation where agreed" />
         <Metric label="Planned (Monday)" value={hrs0(planned)} />
@@ -110,21 +108,21 @@ export function PortfolioTab({ view }: { view: View }) {
       <div className="grid gap-3 xl:grid-cols-2">
         <ChartBox title="Allocated vs forecast hours">
           <div className="h-full overflow-x-auto">
-            <div className="h-full" style={{ minWidth: Math.max(480, rows.length * 56) }}>
+            <div className="h-full" style={{ minWidth: Math.max(640, rows.length * 88) }}>
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                  <CartesianGrid stroke="#eee" vertical={false} />
-                  <XAxis dataKey="client" tick={axis} interval={0} angle={-40} textAnchor="end" height={70} />
-                  <YAxis tick={axis} width={36} />
-                  <Tooltip />
+                <ComposedChart data={rows} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                  <CartesianGrid stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="client" tick={tick} interval={0} angle={-40} textAnchor="end" height={88} />
+                  <YAxis tick={tick} width={40} />
+                  <ChartTooltip />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="allocated_hours" name="Allocated" fill="#cbd5e1" />
-                  <Bar dataKey="forecast_hours" name="Forecast">
+                  <Bar dataKey="allocated_hours" name="Allocated" fill={series.allocated} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="forecast_hours" name="Forecast" radius={[3, 3, 0, 0]}>
                     {rows.map((r) => (
                       <Cell key={r.client} fill={statusColor(r.status)} />
                     ))}
                   </Bar>
-                  <Scatter dataKey="actual_hours" name="Actual so far" fill="#111" />
+                  <Scatter dataKey="actual_hours" name="Actual so far" fill={series.actual} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -132,16 +130,16 @@ export function PortfolioTab({ view }: { view: View }) {
         </ChartBox>
         <ChartBox title="This month vs contract-to-date">
           <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
-              <CartesianGrid stroke="#eee" />
-              <XAxis type="number" dataKey="variance_pct" name="Monthly %" tick={axis} />
-              <YAxis type="number" dataKey="ctd_variance_pct" name="CTD %" tick={axis} width={36} />
+            <ScatterChart margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+              <CartesianGrid stroke="var(--border)" />
+              <XAxis type="number" dataKey="variance_pct" name="Monthly %" tick={tick} unit="%" />
+              <YAxis type="number" dataKey="ctd_variance_pct" name="CTD %" tick={tick} width={40} unit="%" />
               <ZAxis dataKey="allocated_hours" range={[50, 240]} />
-              <Tooltip cursor={{ strokeDasharray: "3 3" }} formatter={(v) => (typeof v === "number" ? v.toFixed(1) : v)} />
-              <ReferenceLine x={view.threshold} stroke="#a3a3a3" strokeDasharray="3 3" />
-              <ReferenceLine x={-view.threshold} stroke="#a3a3a3" strokeDasharray="3 3" />
-              <ReferenceLine y={view.threshold} stroke="#a3a3a3" strokeDasharray="3 3" />
-              <ReferenceLine y={-view.threshold} stroke="#a3a3a3" strokeDasharray="3 3" />
+              <ChartTooltip cursor={{ strokeDasharray: "3 3" }} formatter={(v) => (typeof v === "number" ? v.toFixed(1) : v)} />
+              <ReferenceLine x={view.threshold} stroke="var(--muted-foreground)" strokeDasharray="3 3" />
+              <ReferenceLine x={-view.threshold} stroke="var(--muted-foreground)" strokeDasharray="3 3" />
+              <ReferenceLine y={view.threshold} stroke="var(--muted-foreground)" strokeDasharray="3 3" />
+              <ReferenceLine y={-view.threshold} stroke="var(--muted-foreground)" strokeDasharray="3 3" />
               {[...byStatus.entries()].map(([status, data]) => (
                 <Scatter key={status} name={statusLabel(status)} data={data} fill={statusColor(status)} />
               ))}
@@ -153,15 +151,15 @@ export function PortfolioTab({ view }: { view: View }) {
       <ChartBox title="Portfolio trend">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke="#eee" vertical={false} />
-            <XAxis dataKey="month" tick={axis} />
-            <YAxis tick={axis} width={36} />
-            <Tooltip />
+            <CartesianGrid stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="month" tick={tick} />
+            <YAxis tick={tick} width={40} />
+            <ChartTooltip />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line dataKey="allocated_hours" name="Allocated" stroke="#94a3b8" strokeWidth={2} dot={false} />
-            <Line dataKey="forecast_hours" name="Forecast" stroke="#111" strokeWidth={2} dot={false} />
-            <Line dataKey="actual_hours" name="Actual" stroke="#2563eb" strokeWidth={2} dot={false} />
-            <Line dataKey="nonbillable_hours" name="Non-billable" stroke="#a8a29e" strokeWidth={2} dot={false} />
+            <Line dataKey="allocated_hours" name="Allocated" stroke={series.allocated} strokeWidth={2} dot={false} />
+            <Line dataKey="forecast_hours" name="Forecast" stroke={series.forecast} strokeWidth={2} dot={false} />
+            <Line dataKey="actual_hours" name="Actual" stroke={series.actual} strokeWidth={2} dot={false} />
+            <Line dataKey="nonbillable_hours" name="Non-billable" stroke={series.muted} strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </ChartBox>
@@ -170,7 +168,7 @@ export function PortfolioTab({ view }: { view: View }) {
         <div>
           <SectionTitle>Monthly variance % (grey = data missing)</SectionTitle>
           <div className="mt-2 overflow-x-auto">
-            <table className="border-collapse text-[11px]">
+            <table className="border-collapse text-xs">
               <thead>
                 <tr>
                   <th className="sticky left-0 bg-background px-2 py-1 text-left font-medium">Client</th>
@@ -194,8 +192,8 @@ export function PortfolioTab({ view }: { view: View }) {
                           key={m}
                           className="px-1 py-1 text-center tabular-nums"
                           style={{
-                            background: missing ? "#e5e5e5" : `hsl(${hue} 62% 46%)`,
-                            color: missing ? "#737373" : Math.abs(t) > 18 ? "#fff" : "#111",
+                            background: missing ? "var(--muted)" : `hsl(${hue} 55% 48%)`,
+                            color: missing ? "var(--muted-foreground)" : Math.abs(t) > 18 ? "#fff" : "#111",
                           }}
                           title={missing ? "Missing" : `${v.toFixed(1)}%`}
                         >

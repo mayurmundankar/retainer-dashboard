@@ -1,26 +1,27 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { statusColor, statusLabel } from "./format";
 
 export function Metric({ label, value, hint }: { label: string; value: string; hint?: string | null }) {
   return (
     <div className="min-w-0">
-      <div className="text-[11px] text-muted-foreground">{label}</div>
-      <div className="truncate text-lg font-medium tabular-nums tracking-tight">{value}</div>
-      {hint ? <div className="truncate text-[11px] text-muted-foreground">{hint}</div> : <div className="h-4" />}
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="truncate text-2xl font-medium tabular-nums tracking-tight">{value}</div>
+      {hint ? <div className="text-xs leading-snug text-pretty text-muted-foreground">{hint}</div> : null}
     </div>
   );
 }
 
 export function Banner({ tone, children }: { tone: "warn" | "info" | "bad" | "ok"; children: ReactNode }) {
   const cls = {
-    warn: "border-amber-200 bg-amber-50 text-amber-950",
-    info: "border-sky-200 bg-sky-50 text-sky-950",
-    bad: "border-red-200 bg-red-50 text-red-950",
-    ok: "border-emerald-200 bg-emerald-50 text-emerald-950",
+    warn: "bg-muted text-foreground",
+    info: "bg-card text-muted-foreground",
+    bad: "border-destructive/30 bg-destructive/10 text-destructive",
+    ok: "bg-card text-foreground",
   }[tone];
-  return <div className={cn("rounded-md border px-3 py-2 text-xs leading-relaxed", cls)}>{children}</div>;
+  return <div className={cn("rounded-lg px-3 py-2 text-sm leading-relaxed ring-1 ring-foreground/10", cls)}>{children}</div>;
 }
 
 export function StatusBadge({ status }: { status: string }) {
@@ -42,7 +43,7 @@ export function Disclosure({ title, children, open = false }: { title: string; c
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <h2 className="text-sm font-medium">{children}</h2>;
+  return <h2 className="text-base font-medium tracking-tight">{children}</h2>;
 }
 
 type Col<T> = {
@@ -54,7 +55,7 @@ type Col<T> = {
 
 export function SimpleTable<T>({ columns, rows, empty = "None" }: { columns: Col<T>[]; rows: T[]; empty?: string }) {
   return (
-    <Table className="text-xs">
+    <Table className="text-sm">
       <TableHeader>
         <TableRow>
           {columns.map((c) => (
@@ -89,9 +90,11 @@ export function SimpleTable<T>({ columns, rows, empty = "None" }: { columns: Col
 
 export function ChartBox({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-md border p-3">
-      <div className="mb-2 text-xs font-medium">{title}</div>
-      <div className="h-72">{children}</div>
-    </div>
+    <Card size="sm" className="min-w-0">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="h-80">{children}</CardContent>
+    </Card>
   );
 }

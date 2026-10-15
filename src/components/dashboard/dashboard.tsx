@@ -1,18 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { DashboardPayload } from "@/lib/types";
 import { CapacityTab } from "./capacity-tab";
 import { ClientTab } from "./client-detail";
-import { Banner } from "./bits";
+import { Banner, Disclosure } from "./bits";
 import { ageLabel, monthEndIso, pretty, unique } from "./format";
+import { MonthDatePicker } from "./month-picker";
 import { GuideTab } from "./guide-tab";
 import { PortfolioTab } from "./portfolio";
 import { ReconTab } from "./recon-tab";
@@ -33,6 +35,7 @@ export function Dashboard() {
   const [clientPick, setClientPick] = useState<string[] | null>(null);
   const [pulling, setPulling] = useState(false);
   const [pullNotes, setPullNotes] = useState<string[]>([]);
+  const [clientQuery, setClientQuery] = useState("");
   const requestId = useRef(0);
 
   const load = useCallback(async () => {
@@ -124,13 +127,7 @@ export function Dashboard() {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
-      <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-r bg-sidebar p-4">
-        <div>
-          <div className="text-sm font-medium">Filters</div>
-          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-            Same totals on every tab. Default is retainer, billable time, ±10%.
-          </p>
-        </div>
+      <aside className="flex w-64 shrink-0 flex-col gap-5 overflow-y-auto border-r bg-sidebar px-4 py-5">
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
             {loading ? "Loading…" : "Reload"}
@@ -148,29 +145,35 @@ export function Dashboard() {
         )}
         <Separator />
         <FilterGroup title="Work type">
-          {options.map((w) => (
-            <CheckRow
-              key={w}
-              label={w}
-              checked={workTypes.includes(w)}
-              onChange={(on) => setWorkTypes((prev) => (on ? [...new Set([...prev, w])] : prev.filter((x) => x !== w)))}
-            />
-          ))}
+          <div className="flex gap-3">
+            {options.map((w) => (
+              <CheckRow
+                key={w}
+                label={w}
+                checked={workTypes.includes(w)}
+                onChange={(on) => setWorkTypes((prev) => (on ? [...new Set([...prev, w])] : prev.filter((x) => x !== w)))}
+              />
+            ))}
+          </div>
         </FilterGroup>
         <FilterGroup title="Time included">
-          {(data?.billableViews ?? ["Billable only", "All client time", "Non-billable only"]).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setBillable(v)}
-              className={`rounded-md px-2 py-1 text-left text-xs ${billable === v ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-            >
-              {v}
-            </button>
-          ))}
+          <div className="flex flex-col gap-1">
+            {(data?.billableViews ?? ["Billable only", "All client time", "Non-billable only"]).map((v) => (
+              <Button
+                key={v}
+                type="button"
+                size="sm"
+                variant={billable === v ? "secondary" : "ghost"}
+                className="justify-start"
+                onClick={() => setBillable(v)}
+              >
+                {v}
+              </Button>
+            ))}
+          </div>
         </FilterGroup>
         <div className="space-y-2">
-          <Label className="text-xs">Review threshold ±{threshold}%</Label>
+          <Label className="text-xs text-muted-foreground">Review threshold ±{threshold}%</Label>
           <Slider
             min={5}
             max={30}
@@ -181,14 +184,12 @@ export function Dashboard() {
               if (typeof n === "number") setThreshold(n);
             }}
           />
-          <p className="text-[11px] text-muted-foreground">A review trigger, not an instruction to cut delivery.</p>
         </div>
-        <Separator />
         {months.length > 0 && asOf && from && to && (
           <>
-            <MonthSelect label="Reporting month" value={asOf} months={[...months].reverse()} onChange={setAsOf} />
-            <MonthSelect label="Trend from" value={from} months={months} onChange={setRangeFrom} />
-            <MonthSelect label="Trend to" value={to} months={months} onChange={setRangeTo} />
+            <MonthDatePicker label="Reporting month" value={asOf} months={months} onChange={setAsOf} />
+            <MonthDatePicker label="Trend from" value={from} months={months} onChange={setRangeFrom} />
+            <MonthDatePicker label="Trend to" value={to} months={months} onChange={setRangeTo} />
           </>
         )}
         <FilterGroup
@@ -221,8 +222,14 @@ export function Dashboard() {
             </button>
           }
         >
-          <div className="max-h-48 space-y-1 overflow-auto">
-            {clients.map((c) => (
+          <Input
+            value={clientQuery}
+            onChange={(e) => setClientQuery(e.target.value)}
+            placeholder="Find a client"
+            className="h-8"
+          />
+          <div className="max-h-40 space-y-1 overflow-auto">
+            {clients.filter((c) => c.toLowerCase().includes(clientQuery.trim().toLowerCase())).map((c) => (
               <CheckRow
                 key={c}
                 label={c}
@@ -238,53 +245,48 @@ export function Dashboard() {
       </aside>
 
       <main className="min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 p-5">
-          <div>
-            <h1 className="text-lg font-medium tracking-tight">Retainer, Capacity & Overservicing</h1>
-            <p className="text-xs text-muted-foreground">
-              Contracted, planned, actual, and forecast hours.
-              {data?.storage === "supabase" ? " Loaded from the Supabase CSVs." : ""}
-            </p>
-          </div>
-
-          {data && (
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {data.freshness.map((f) => (
-                <div key={f.source} className="rounded-md border px-3 py-2">
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    <span className="font-medium">{f.source}</span>
-                    <span className={f.state.includes("Check") ? "text-amber-700" : "text-emerald-700"}>
-                      {f.state.includes("Check") ? "Check" : "Fresh"}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Last success {ageLabel(f.age_hours)} · {f.status}
-                    <br />
-                    Covers {f.period_start || "—"} → {f.period_end || "—"}
-                  </p>
-                </div>
-              ))}
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-medium tracking-tight">Retainers</h1>
+              <p className="text-sm text-muted-foreground">Contracted, planned, actual, and forecast hours.</p>
             </div>
-          )}
+            {data && (
+              <div className="flex flex-wrap justify-end gap-1.5">
+                {data.freshness.map((f) => (
+                  <Badge
+                    key={f.source}
+                    variant={f.state.includes("Check") ? "outline" : "secondary"}
+                    title={`${f.status}. Covers ${f.period_start || "—"} to ${f.period_end || "—"}. Last success ${ageLabel(f.age_hours)}.`}
+                  >
+                    {f.source} · {f.state.includes("Check") ? "Check" : "Fresh"}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
 
           {!workTypes.length && <Banner tone="warn">Select at least one work type.</Banner>}
           {error && <Banner tone="bad">{error}</Banner>}
           {data?.storageNote && <Banner tone="warn">{data.storageNote}</Banner>}
           {data && data.incompleteClients.length > 0 && (
-            <Banner tone="warn">
-              These clients are missing a contract start or monthly hours, so they are not shown yet: {data.incompleteClients.join(", ")}.
-            </Banner>
+            <Disclosure title={`${data.incompleteClients.length} clients missing a contract start or monthly hours`}>
+              <p className="px-3 py-2 text-sm text-muted-foreground">{data.incompleteClients.join(", ")}. They are not shown yet.</p>
+            </Disclosure>
           )}
           {inactive.length > 0 && asOf && (
-            <Banner tone="warn">
-              These clients have no contract active in {asOf}, so they are not in this month’s figures:{" "}
-              {inactive.map((r) => `${r.client} (${pretty(r.start)} → ${pretty(r.end)})`).join("; ")}.
-            </Banner>
+            <Disclosure title={`${inactive.length} clients have no contract active in ${asOf}`}>
+              <p className="px-3 py-2 text-sm text-muted-foreground">
+                {inactive.map((r) => `${r.client} (${pretty(r.start)} → ${pretty(r.end)})`).join("; ")}. They are not in this month’s figures.
+              </p>
+            </Disclosure>
           )}
           {noTime.length > 0 && asOf && (
-            <Banner tone="info">
-              No Everhour time matched for {noTime.join(", ")} in {asOf}. If time was logged, the client is probably named differently in Everhour — see Reconciliation, then add a row to client_mapping.csv.
-            </Banner>
+            <Disclosure title={`No Everhour time for ${noTime.length} clients in ${asOf}`}>
+              <p className="px-3 py-2 text-sm text-muted-foreground">
+                {noTime.join(", ")}. If time was logged, the client is probably named differently in Everhour — see Reconciliation.
+              </p>
+            </Disclosure>
           )}
           {stale && <Banner tone="warn">One or more sources are stale or only partly loaded. Affected figures may be incomplete.</Banner>}
           {data && !workTypes.includes("Retainer") && (
@@ -293,8 +295,8 @@ export function Dashboard() {
             </Banner>
           )}
           {view && data && view.asOf === data.current && (
-            <p className="text-[11px] text-muted-foreground">
-              {view.asOf} is the open month: forecast = actual so far + remaining estimate (today {data.today}).
+            <p className="text-sm text-muted-foreground">
+              {view.asOf} is the open month. Forecast is actual so far plus the remaining estimate, as of {data.today}.
             </p>
           )}
 
@@ -343,39 +345,22 @@ function inactiveClients(data: DashboardPayload, asOf: string) {
 
 function FilterGroup({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
+        <div className="text-xs font-medium text-muted-foreground">{title}</div>
         {action}
       </div>
-      <div className="flex flex-col gap-1">{children}</div>
+      {children}
     </div>
   );
 }
 
 function CheckRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (on: boolean) => void }) {
   return (
-    <label className="flex items-center gap-2 text-xs">
+    <label className="flex items-center gap-2 text-sm">
       <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} />
       <span className="truncate">{label}</span>
     </label>
   );
 }
 
-function MonthSelect({ label, value, months, onChange }: { label: string; value: string; months: string[]; onChange: (v: string) => void }) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
-      <Select value={value} onValueChange={(v) => v && onChange(v)} items={months.map((m) => ({ value: m, label: m }))}>
-        <SelectTrigger className="w-full" size="sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {months.map((m) => (
-            <SelectItem key={m} value={m}>{m}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}

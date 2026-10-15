@@ -11,15 +11,13 @@ import {
   LineChart,
   ResponsiveContainer,
   Scatter,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import { Banner, ChartBox, Metric, SectionTitle, SimpleTable } from "./bits";
+import { ChartTooltip, series, seriesColor, tick } from "./charts";
 import { hrs1, pct1, signedPct, statusLabel } from "./format";
 import type { View } from "./view";
-
-const axis = { fontSize: 11, fill: "#737373" };
 
 export function ClientTab({ view }: { view: View }) {
   const [client, setClient] = useState(view.clients[0] ?? "");
@@ -151,29 +149,29 @@ export function ClientTab({ view }: { view: View }) {
         <ChartBox title="Monthly hours">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={cdf} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="#eee" vertical={false} />
-              <XAxis dataKey="month" tick={axis} />
-              <YAxis tick={axis} width={36} />
-              <Tooltip />
+              <CartesianGrid stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="month" tick={tick} />
+              <YAxis tick={tick} width={40} />
+              <ChartTooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="actual_hours" name="Actual" stackId="h" fill="#3182bd" />
-              <Bar dataKey="remaining_estimate" name="Remaining est." stackId="h" fill="#bfdbfe" />
-              <Line dataKey="allocated_hours" name="Allocated" stroke="#111" strokeDasharray="4 4" dot={false} />
-              <Line dataKey="contracted_hours" name="Contracted" stroke="#a3a3a3" dot={false} />
-              <Scatter dataKey="planned_hours" name="Planned" fill="#7c3aed" />
+              <Bar dataKey="actual_hours" name="Actual" stackId="h" fill={series.actual} />
+              <Bar dataKey="remaining_estimate" name="Remaining est." stackId="h" fill={series.allocated} radius={[3, 3, 0, 0]} />
+              <Line dataKey="allocated_hours" name="Allocated" stroke={series.forecast} strokeDasharray="4 4" dot={false} />
+              <Line dataKey="contracted_hours" name="Contracted" stroke={series.contracted} dot={false} />
+              <Scatter dataKey="planned_hours" name="Planned" fill={series.planned} />
             </ComposedChart>
           </ResponsiveContainer>
         </ChartBox>
         <ChartBox title="Contract-to-date (resets on renewal)">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={cdf} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="#eee" vertical={false} />
-              <XAxis dataKey="month" tick={axis} />
-              <YAxis tick={axis} width={40} />
-              <Tooltip />
+              <CartesianGrid stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="month" tick={tick} />
+              <YAxis tick={tick} width={44} />
+              <ChartTooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Line dataKey="ctd_contracted" name="CTD contracted" stroke="#111" dot={false} />
-              <Line dataKey="ctd_actual" name="CTD actual" stroke="#dc2626" dot={false} />
+              <Line dataKey="ctd_contracted" name="CTD contracted" stroke={series.contracted} strokeWidth={2} dot={false} />
+              <Line dataKey="ctd_actual" name="CTD actual" stroke={series.forecast} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </ChartBox>
@@ -205,13 +203,13 @@ export function ClientTab({ view }: { view: View }) {
             <div className="mt-2 h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={nbData}>
-                  <CartesianGrid stroke="#eee" vertical={false} />
-                  <XAxis dataKey="month" tick={axis} />
-                  <YAxis tick={axis} width={36} />
-                  <Tooltip />
+                  <CartesianGrid stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="month" tick={tick} />
+                  <YAxis tick={tick} width={40} />
+                  <ChartTooltip />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {cats.map((c, i) => (
-                    <Bar key={c} dataKey={c} stackId="nb" fill={["#44403c", "#a8a29e", "#d6d3d1", "#78716c"][i % 4]} />
+                    <Bar key={c} dataKey={c} stackId="nb" fill={seriesColor(i)} radius={i === cats.length - 1 ? [3, 3, 0, 0] : undefined} />
                   ))}
                 </ComposedChart>
               </ResponsiveContainer>
