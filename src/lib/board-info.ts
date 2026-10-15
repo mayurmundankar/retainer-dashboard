@@ -93,6 +93,23 @@ export function parseMonthDate(text: string, endOfMonth = false): YMD | null {
   return null;
 }
 
+/**
+ * Hours on one board line. A slash-separated pair such as "65hrs (SEO) / 21hrs (Paid)"
+ * is two monthly amounts. A once-off figure on the same line is not added.
+ */
+export function hoursOnBoardLine(rest: string): number | null {
+  const first = rest.match(NUM);
+  if (!first) return null;
+  let total = Number(first[1].replace(",", "."));
+  if (!Number.isFinite(total)) return null;
+  for (const extra of rest.matchAll(/\/\s*(\d+(?:[.,]\d+)?)\s*(?:hours|hrs|hr|h)\b([^/]*)/gi)) {
+    if (/once[\s-]?off|one[\s-]?off/i.test(extra[2] || "")) continue;
+    const n = Number(extra[1].replace(",", "."));
+    if (Number.isFinite(n)) total += n;
+  }
+  return total;
+}
+
 function ownerName(text: string): string {
   const first = text.trim().split(/\s*(?:\/|,|&|\band\b)\s*/)[0] ?? "";
   return first.replace(/\s*\(.*?\)/g, "").trim();
@@ -170,9 +187,8 @@ export function parseBoardDescription(
 
   const rows: BoardContract[] = [];
   for (const { service: rawService, rest, raw } of hourLines) {
-    const found = rest.match(NUM);
-    if (!found) continue;
-    const hours = Number(found[1].replace(",", "."));
+    const hours = hoursOnBoardLine(rest);
+    if (hours == null) continue;
     const service = rawService || "Retainer";
     let lineStart = start;
     let lineEnd = end;

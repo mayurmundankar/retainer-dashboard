@@ -1,3 +1,4 @@
+import { canonicalIndex, clientKey, resolveClient } from "./clients";
 import {
   CTD_PRORATE_CURRENT_MONTH,
   CTD_THRESHOLD_PCT,
@@ -37,22 +38,28 @@ function mappingLookup(mapping: CsvRow[], source: string) {
   const lookup = new Map<string, string>();
   for (const row of mapping) {
     if (cell(row, "source").toLowerCase() !== source.toLowerCase()) continue;
-    const name = cell(row, "source_name").toLowerCase();
-    const canonical = cell(row, "canonical_client");
+    const name = clientKey(cell(row, "source_name"));
+    const canonical = cell(row, "canonical_client").normalize("NFC").trim();
     if (name && canonical) lookup.set(name, canonical);
   }
   return lookup;
 }
 
-function mapClient(raw: string, lookup: Map<string, string>) {
-  const trimmed = raw.trim();
-  return { client_raw: trimmed, client: lookup.get(trimmed.toLowerCase()) ?? trimmed };
+function mapClient(raw: string, lookup: Map<string, string>, canonical: Map<string, string>) {
+  const trimmed = raw.normalize("NFC").trim().replace(/\s+/g, " ");
+  return { client_raw: trimmed, client: resolveClient(trimmed, lookup, canonical) };
 }
 
-export function prepareTime(entries: TimeEntry[], mapping: CsvRow[]) {
+function pulseId(id: string): string | null {
+  const match = id.match(/(\d{6,})$/);
+  return match ? match[1] : null;
+}
+
+export function prepareTime(entries: TimeEntry[], mapping: CsvRow[], canonicalNames: string[] = []) {
   const lookup = mappingLookup(mapping, "everhour");
+  const canonical = canonicalIndex(canonicalNames);
   const mapped: MappedTime[] = entries.map((e) => {
-    const names = mapClient(e.client, lookup);
+    const names = mapClient(e.client, lookup, canonical);
     const ymd = parseDate(e.date);
     const work = e.work_type.trim() || "Unclassified";
     return {
@@ -80,10 +87,11 @@ export function prepareTime(entries: TimeEntry[], mapping: CsvRow[]) {
   return { clean, duplicates };
 }
 
-export function preparePlanned(items: PlannedRaw[], mapping: CsvRow[]) {
+export function preparePlanned(items: PlannedRaw[], mapping: CsvRow[], canonicalNames: string[] = []) {
   const lookup = mappingLookup(mapping, "monday");
+  const canonical = canonicalIndex(canonicalNames);
   const all: MappedPlanned[] = items.map((item) => {
-    const names = mapClient(item.client, lookup);
+    const names = mapClient(item.client, lookup, canonical);
     const work = item.work_type.trim() || "Unclassified";
     return { ...item, ...names, work_type: work, monthPeriod: parseMonth(item.month) };
   });
@@ -239,8 +247,9 @@ export function buildFactTable(
   now: YMD = today(),
 ) {
   const current = toPeriod(now);
-  const { clean: timeClean, duplicates } = prepareTime(data.timeEntries, data.clientMapping);
-  const { planned, noMonth } = preparePlanned(data.plannedItems, data.clientMapping);
+  const canonicalNames = data.contracts.map((c) => c.client);
+  const { clean: timeClean, duplicates } = prepareTime(data.timeEntries, data.clientMapping, canonicalNames);
+  const { planned, noMonth } = preparePlanned(data.plannedItems, data.clientMapping, canonicalNames);
 
   const contractStarts = data.contracts.map((c) => toPeriod(c.contract_start)).sort();
   const firstContract = contractStarts[0];
@@ -284,6 +293,20 @@ export function buildFactTable(
     sumInto(nbTotal, key, t.hours);
   }
 
+  const loggedOnItem = new Map<string, number>();
+  for (const t of teView) {
+    const id = pulseId(t.task_id);
+    if (!id || !t.month) continue;
+    sumInto(loggedOnItem, `${id}\t${t.month}`, t.hours);
+  }
+
+  const openHours = (item: { item_id: string; monthPeriod: string | null; status: string; planned_hours: number }) => {
+    if (DELIVERY_STATUS_DONE.includes(item.status)) return 0;
+    const id = pulseId(item.item_id);
+    const logged = id && item.monthPeriod ? (loggedOnItem.get(`${id}\t${item.monthPeriod}`) ?? 0) : 0;
+    return Math.max(0, Math.round((item.planned_hours - logged) * 100) / 100);
+  };
+
   const p = billableFilter(
     planned.filter((item) => item.monthPeriod && workSet.has(item.work_type)),
     billableView,
@@ -308,7 +331,7 @@ export function buildFactTable(
       deliverables_blocked: 0,
     };
     cur.planned_hours += item.planned_hours;
-    cur.remaining_estimate += done ? 0 : item.remaining_estimate_hours;
+    cur.remaining_estimate += openHours(item);
     cur.deliverables_total += 1;
     cur.deliverables_done += done ? 1 : 0;
     cur.deliverables_blocked += blocked ? 1 : 0;
@@ -408,7 +431,7 @@ export function buildFactTable(
     owner: p.owner,
     status: p.status,
     planned_hours: p.planned_hours,
-    remaining_estimate_hours: p.remaining_estimate_hours,
+    remaining_estimate_hours: openHours(p),
     work_type: p.work_type,
     month_source: p.month_source,
     billable_raw: p.billable_raw,

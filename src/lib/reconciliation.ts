@@ -1,3 +1,4 @@
+import { canonicalIndex, clientKey, resolveClient } from "./clients";
 import { RECON_TOLERANCE_PCT } from "./constants";
 import { cell, num } from "./csv";
 import type { CsvRow } from "./csv";
@@ -12,8 +13,8 @@ function lookup(mapping: CsvRow[], source: string) {
   const map = new Map<string, string>();
   for (const row of mapping) {
     if (cell(row, "source").toLowerCase() !== source.toLowerCase()) continue;
-    const name = cell(row, "source_name").toLowerCase();
-    const canonical = cell(row, "canonical_client");
+    const name = clientKey(cell(row, "source_name"));
+    const canonical = cell(row, "canonical_client").normalize("NFC").trim();
     if (name && canonical) map.set(name, canonical);
   }
   return map;
@@ -32,7 +33,7 @@ export function everhourVsTracker(timeClean: TimeLike[], tracker: CsvRow[], mapp
   const tr = new Map<string, { client: string; month: string; hours: number }>();
   for (const row of tracker) {
     const raw = cell(row, "client").trim();
-    const client = map.get(raw.toLowerCase()) ?? raw;
+    const client = map.get(clientKey(raw)) ?? resolveClient(raw, map, canonicalIndex([]));
     const month = parseMonth(cell(row, "month"));
     const hours = num(cell(row, "hours"));
     if (!client || !month || hours == null) continue;
@@ -90,13 +91,14 @@ export function unmappedClients(
       names: data.tracker.map((t) => cell(t, "client")),
     },
   ];
+  const index = canonicalIndex(canonical);
   for (const src of sources) {
     const map = lookup(data.clientMapping, src.source);
     const counts = new Map<string, number>();
     for (const rawName of src.names) {
       const raw = rawName.trim() || "nan";
-      const client = raw === "nan" ? "nan" : (map.get(raw.toLowerCase()) ?? raw);
-      if (canonical.has(client)) continue;
+      const client = raw === "nan" ? "" : resolveClient(raw, map, index);
+      if (client && index.has(clientKey(client))) continue;
       counts.set(raw, (counts.get(raw) ?? 0) + 1);
     }
     const ordered = [...counts.entries()].sort((a, b) => b[1] - a[1]);

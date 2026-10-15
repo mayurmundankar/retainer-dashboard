@@ -1,3 +1,4 @@
+import { hoursOnBoardLine } from "./board-info";
 import { ACTION_COLUMNS, INTERNAL_CLIENTS } from "./constants";
 import { asBool, cell, num, readCsv, tidy, writeCsv, type CsvRow } from "./csv";
 import { addYears, fmt, nowIso, parseDate, today, type YMD } from "./dates";
@@ -92,12 +93,12 @@ function cleanContracts(rows: CsvRow[], source: string): { ok: Contract[]; bad: 
   const ok: Contract[] = [];
   const bad: { client: string }[] = [];
   for (const row of rows) {
-    const client = tidy(cell(row, "client"));
+    const client = tidy(cell(row, "client")).normalize("NFC");
     if (!client) continue;
     const start = parseDate(cell(row, "contract_start"));
     const end = parseDate(cell(row, "contract_end")) ?? openEnd;
     const effective = parseDate(cell(row, "effective_from")) ?? start;
-    const hours = num(cell(row, "monthly_hours"));
+    const hours = boardHours(row) ?? num(cell(row, "monthly_hours"));
     const owner = cell(row, "account_owner");
     let billing = cell(row, "billing_model");
     if (!billing) billing = "Standard";
@@ -126,17 +127,26 @@ function cleanContracts(rows: CsvRow[], source: string): { ok: Contract[]; bad: 
   return { ok, bad };
 }
 
+/** Re-read a stored Monday line so "65hrs (SEO) / 21hrs (Paid)" stays a sum, not the first number. */
+function boardHours(row: CsvRow): number | null {
+  const prefix = "From Monday board description:";
+  const notes = cell(row, "notes");
+  if (!notes.startsWith(prefix)) return null;
+  const raw = notes.slice(prefix.length).trim();
+  const idx = raw.indexOf(":");
+  if (idx < 0) return null;
+  return hoursOnBoardLine(raw.slice(idx + 1));
+}
+
 function mergeContracts(manualRows: CsvRow[], mondayRows: CsvRow[]): { contracts: Contract[]; incomplete: { client: string }[] } {
   const manual = cleanContracts(manualRows, "contracts.csv");
-  const manualClients = new Set(manual.ok.map((c) => c.client));
-  let mondayOk: Contract[] = [];
-  let mondayBad: { client: string }[] = [];
-  if (mondayRows.length) {
-    const monday = cleanContracts(mondayRows, "Monday board description");
-    mondayOk = monday.ok.filter((c) => !manualClients.has(c.client));
-    mondayBad = monday.bad;
-  }
-  const covered = new Set<string>([...manualClients, ...mondayOk.map((c) => c.client)]);
+  const monday = mondayRows.length ? cleanContracts(mondayRows, "Monday board description") : { ok: [], bad: [] };
+  // Monday board descriptions are the hours the account teams maintain.
+  // contracts.csv only covers clients whose board has no readable hours line.
+  const mondayClients = new Set(monday.ok.map((c) => c.client));
+  const manualOnly = manual.ok.filter((c) => !mondayClients.has(c.client));
+  const mondayBad = monday.bad;
+  const covered = new Set<string>([...mondayClients, ...manualOnly.map((c) => c.client)]);
   const internal = new Set(INTERNAL_CLIENTS);
   const seen = new Set<string>();
   const incomplete: { client: string }[] = [];
@@ -145,7 +155,7 @@ function mergeContracts(manualRows: CsvRow[], mondayRows: CsvRow[]): { contracts
     seen.add(row.client);
     incomplete.push(row);
   }
-  return { contracts: [...manual.ok, ...mondayOk], incomplete };
+  return { contracts: [...monday.ok, ...manualOnly], incomplete };
 }
 
 function applyBoardClients(planned: PlannedRaw[], boards: CsvRow[]): PlannedRaw[] {

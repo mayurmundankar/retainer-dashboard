@@ -5,7 +5,7 @@ const DEFINITIONS = [
   ["Allocated hours", "Agreed delivery allocation for the month. Equals contracted unless a seasonal allocation exists.", "Contracts / seasonal plan"],
   ["Planned hours", "Hours planned for the month. Shown separately and never added to the forecast.", "Monday.com"],
   ["Actual hours", "Hours recorded so far under the current filters.", "Everhour"],
-  ["Remaining estimate", "Estimated hours to finish open (not Done) items. Current month only.", "Monday.com"],
+  ["Remaining estimate", "Hours still left on open items this month, after Everhour time already logged on those items.", "Monday.com / Everhour"],
   ["Forecast", "Actual + remaining estimate.", "Calculated"],
   ["Monthly variance", "Forecast − allocated, in hours and percent.", "Calculated"],
   ["Contract-to-date", "Cumulative actual vs cumulative contracted for the current contract. Resets on renewal.", "Calculated"],
