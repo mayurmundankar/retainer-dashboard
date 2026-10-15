@@ -15,6 +15,7 @@ import {
 import { ChartBox, Metric, SimpleTable } from "./bits";
 import { ChartTooltip, series, seriesColor, tick } from "./charts";
 import { hrs0, hrs1, pct1, sumNum } from "./format";
+import { formatMonth } from "./month-picker";
 import type { View } from "./view";
 
 export function CapacityTab({ view }: { view: View }) {
@@ -56,9 +57,9 @@ export function CapacityTab({ view }: { view: View }) {
             </BarChart>
           </ResponsiveContainer>
         </ChartBox>
-        <ChartBox title="Planned load % of capacity">
+        <ChartBox title={`Planned load % · ${formatMonth(view.range[0])} – ${formatMonth(view.range[1])}`}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={lineData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <LineChart key={view.range.join(":")} data={lineData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="var(--border)" vertical={false} />
               <XAxis dataKey="month" tick={tick} />
               <YAxis tick={tick} width={40} unit="%" />

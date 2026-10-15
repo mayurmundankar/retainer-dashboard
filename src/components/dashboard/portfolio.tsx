@@ -20,6 +20,7 @@ import {
 import { ChartBox, Metric, SectionTitle, SimpleTable, StatusBadge } from "./bits";
 import { ChartTooltip, series, tick } from "./charts";
 import { downloadFact, hrs0, hrs1, pct1, signedPct, statusColor, statusLabel, sumMin, sumNum } from "./format";
+import { formatMonth } from "./month-picker";
 import type { View } from "./view";
 
 export function PortfolioTab({ view }: { view: View }) {
@@ -72,7 +73,7 @@ export function PortfolioTab({ view }: { view: View }) {
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <SectionTitle>Accounts – {view.asOf}</SectionTitle>
+        <SectionTitle>Accounts – {formatMonth(view.asOf)}</SectionTitle>
         <Button variant="outline" size="sm" onClick={() => downloadFact(view.trendRows)}>
           Download CSV
         </Button>
@@ -148,9 +149,9 @@ export function PortfolioTab({ view }: { view: View }) {
         </ChartBox>
       </div>
 
-      <ChartBox title="Portfolio trend">
+      <ChartBox title={`Portfolio trend · ${formatMonth(view.range[0])} – ${formatMonth(view.range[1])}`}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <LineChart key={view.range.join(":")} data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="var(--border)" vertical={false} />
             <XAxis dataKey="month" tick={tick} />
             <YAxis tick={tick} width={40} />
@@ -166,7 +167,7 @@ export function PortfolioTab({ view }: { view: View }) {
 
       {heatClients.length > 0 && (
         <div>
-          <SectionTitle>Monthly variance % (grey = data missing)</SectionTitle>
+          <SectionTitle>Monthly variance % · {formatMonth(view.range[0])} – {formatMonth(view.range[1])}</SectionTitle>
           <div className="mt-2 overflow-x-auto">
             <table className="border-collapse text-xs">
               <thead>

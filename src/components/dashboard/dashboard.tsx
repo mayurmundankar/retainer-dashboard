@@ -14,7 +14,7 @@ import { CapacityTab } from "./capacity-tab";
 import { ClientTab } from "./client-detail";
 import { Banner, Disclosure } from "./bits";
 import { ageLabel, monthEndIso, pretty, unique } from "./format";
-import { MonthDatePicker } from "./month-picker";
+import { formatMonth, MonthDatePicker } from "./month-picker";
 import { GuideTab } from "./guide-tab";
 import { PortfolioTab } from "./portfolio";
 import { ReconTab } from "./recon-tab";
@@ -296,7 +296,7 @@ export function Dashboard() {
           )}
           {view && data && view.asOf === data.current && (
             <p className="text-sm text-muted-foreground">
-              {view.asOf} is the open month. Forecast is actual so far plus the remaining estimate, as of {data.today}.
+              {formatMonth(view.asOf)} is the open month. Forecast is actual so far plus the remaining estimate, as of {data.today}.
             </p>
           )}
 

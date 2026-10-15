@@ -6,6 +6,7 @@ import { reviewItems } from "@/lib/review";
 import type { ReviewItem } from "@/lib/types";
 import { Banner, Metric } from "./bits";
 import { hrs1, pct1 } from "./format";
+import { formatMonth } from "./month-picker";
 import type { View } from "./view";
 
 function keyOf(r: { client: string; month: string; flag_type: string }) {
@@ -58,10 +59,10 @@ export function ReviewTab({ view, onSaved }: { view: View; onSaved: () => void }
       </Banner>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant={scope === "month" ? "default" : "outline"} onClick={() => setScope("month")}>
-          Reporting month ({view.asOf})
+          Reporting month ({formatMonth(view.asOf)})
         </Button>
         <Button size="sm" variant={scope === "range" ? "default" : "outline"} onClick={() => setScope("range")}>
-          Trend range ({view.range[0]} → {view.range[1]})
+          Trend range ({formatMonth(view.range[0])} – {formatMonth(view.range[1])})
         </Button>
       </div>
       {rows.length === 0 ? (

@@ -17,6 +17,7 @@ import {
 import { Banner, ChartBox, Metric, SectionTitle, SimpleTable } from "./bits";
 import { ChartTooltip, series, seriesColor, tick } from "./charts";
 import { hrs1, pct1, signedPct, statusLabel } from "./format";
+import { formatMonth } from "./month-picker";
 import type { View } from "./view";
 
 export function ClientTab({ view }: { view: View }) {
@@ -146,9 +147,9 @@ export function ClientTab({ view }: { view: View }) {
       )}
 
       <div className="grid gap-3 xl:grid-cols-2">
-        <ChartBox title="Monthly hours">
+        <ChartBox title={`Monthly hours · ${formatMonth(view.range[0])} – ${formatMonth(view.range[1])}`}>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={cdf} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart key={view.range.join(":")} data={cdf} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="var(--border)" vertical={false} />
               <XAxis dataKey="month" tick={tick} />
               <YAxis tick={tick} width={40} />
@@ -164,7 +165,7 @@ export function ClientTab({ view }: { view: View }) {
         </ChartBox>
         <ChartBox title="Contract-to-date (resets on renewal)">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={cdf} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <LineChart key={view.range.join(":")} data={cdf} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="var(--border)" vertical={false} />
               <XAxis dataKey="month" tick={tick} />
               <YAxis tick={tick} width={44} />
@@ -196,7 +197,7 @@ export function ClientTab({ view }: { view: View }) {
           </div>
         </div>
         <div>
-          <SectionTitle>Non-billable client time</SectionTitle>
+          <SectionTitle>Non-billable client time · {formatMonth(view.range[0])} – {formatMonth(view.range[1])}</SectionTitle>
           {cats.length === 0 ? (
             <p className="mt-2 text-xs text-muted-foreground">No non-billable time recorded.</p>
           ) : (
