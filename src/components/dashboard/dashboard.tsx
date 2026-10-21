@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { isInternalClient } from "@/lib/constants";
 import type { DashboardPayload } from "@/lib/types";
 import { CapacityTab } from "./capacity-tab";
 import { ClientTab } from "./client-detail";
@@ -28,6 +29,17 @@ export function Dashboard() {
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const filterTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const triggerFilterFeedback = useCallback(() => {
+    setFilterLoading(true);
+    if (filterTimeoutRef.current) clearTimeout(filterTimeoutRef.current);
+    filterTimeoutRef.current = setTimeout(() => {
+      setFilterLoading(false);
+    }, 300);
+  }, []);
+
   const [asOf, setAsOf] = useState<string | null>(null);
   const [rangeFrom, setRangeFrom] = useState<string | null>(null);
   const [rangeTo, setRangeTo] = useState<string | null>(null);
@@ -82,10 +94,24 @@ export function Dashboard() {
   const owners = useMemo(() => unique((data?.fact ?? []).map((r) => r.account_owner)), [data]);
   const selectedOwners = ownerPick ? ownerPick.filter((o) => owners.includes(o)) : owners;
   const clients = useMemo(
-    () => unique((data?.fact ?? []).filter((r) => selectedOwners.includes(r.account_owner)).map((r) => r.client)),
-    [data, selectedOwners],
+    () =>
+      unique(
+        (data?.fact ?? [])
+          .filter(
+            (r) =>
+              (!asOf || r.month === asOf) &&
+              selectedOwners.includes(r.account_owner) &&
+              !isInternalClient(r.client) &&
+              !r.data_missing &&
+              ((r.actual_hours != null && r.actual_hours > 0) || r.planned_hours > 0),
+          )
+          .map((r) => r.client),
+      ),
+    [data, selectedOwners, asOf],
   );
-  const selectedClients = (clientPick ? clientPick.filter((c) => clients.includes(c)) : clients);
+  const selectedClients = (clientPick ? clientPick.filter((c) => clients.includes(c)) : clients).filter(
+    (c) => !isInternalClient(c),
+  );
 
   const from = rangeFrom && rangeTo && rangeFrom > rangeTo ? rangeTo : rangeFrom;
   const to = rangeFrom && rangeTo && rangeFrom > rangeTo ? rangeFrom : rangeTo;
@@ -99,8 +125,21 @@ export function Dashboard() {
         workTypes,
         owners: selectedOwners,
         clients: selectedClients,
-        monthRows: data.fact.filter((r) => r.month === asOf && selectedClients.includes(r.client) && selectedOwners.includes(r.account_owner)),
-        trendRows: data.fact.filter((r) => r.month >= from && r.month <= to && selectedClients.includes(r.client) && selectedOwners.includes(r.account_owner)),
+        monthRows: data.fact.filter(
+          (r) =>
+            r.month === asOf &&
+            selectedClients.includes(r.client) &&
+            selectedOwners.includes(r.account_owner) &&
+            !isInternalClient(r.client),
+        ),
+        trendRows: data.fact.filter(
+          (r) =>
+            r.month >= from &&
+            r.month <= to &&
+            selectedClients.includes(r.client) &&
+            selectedOwners.includes(r.account_owner) &&
+            !isInternalClient(r.client),
+        ),
       }
     : null;
 
@@ -124,16 +163,26 @@ export function Dashboard() {
   const inactive = data && asOf ? inactiveClients(data, asOf) : [];
   const noTime = view?.monthRows.filter((r) => r.data_missing).map((r) => r.client) ?? [];
   const stale = data?.freshness.some((f) => f.stale || f.status.toLowerCase() !== "ok") ?? false;
+  const isUpdating = loading || filterLoading;
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
-      <aside className="flex w-64 shrink-0 flex-col gap-5 overflow-y-auto border-r bg-sidebar px-4 py-5">
+      <aside className="flex w-64 shrink-0 flex-col gap-5 overflow-y-auto border-r border-border/70 bg-gradient-to-b from-sidebar via-sidebar to-sidebar/95 px-4 py-5 shadow-xs">
+        <div className="flex items-center gap-2.5 px-0.5 pb-1 border-b border-border/40">
+          <img src="/verkeer.png" alt="Verkeer" className="h-6 w-auto object-contain dark:brightness-110" />
+        </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+          <Button id="reload-btn" variant="outline" size="sm" className="flex-1 shadow-xs bg-card hover:bg-muted/70" onClick={() => void load()} disabled={loading}>
             {loading ? "Loading…" : "Reload"}
           </Button>
           {data?.dataSource === "api" && (
-            <Button variant="outline" size="sm" onClick={() => void pull()} disabled={pulling}>
+            <Button
+              id="pull-apis-btn"
+              size="sm"
+              className="flex-1 shadow-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0 font-medium"
+              onClick={() => void pull()}
+              disabled={pulling}
+            >
               {pulling ? "Pulling…" : "Pull APIs"}
             </Button>
           )}
@@ -151,7 +200,10 @@ export function Dashboard() {
                 key={w}
                 label={w}
                 checked={workTypes.includes(w)}
-                onChange={(on) => setWorkTypes((prev) => (on ? [...new Set([...prev, w])] : prev.filter((x) => x !== w)))}
+                onChange={(on) => {
+                  triggerFilterFeedback();
+                  setWorkTypes((prev) => (on ? [...new Set([...prev, w])] : prev.filter((x) => x !== w)));
+                }}
               />
             ))}
           </div>
@@ -165,37 +217,67 @@ export function Dashboard() {
                 size="sm"
                 variant={billable === v ? "secondary" : "ghost"}
                 className="justify-start"
-                onClick={() => setBillable(v)}
+                onClick={() => {
+                  triggerFilterFeedback();
+                  setBillable(v);
+                }}
               >
                 {v}
               </Button>
             ))}
           </div>
         </FilterGroup>
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Review threshold ±{threshold}%</Label>
-          <Slider
-            min={5}
-            max={30}
-            step={1}
-            value={[threshold]}
-            onValueChange={(value) => {
-              const n = Array.isArray(value) ? value[0] : value;
-              if (typeof n === "number") setThreshold(n);
-            }}
-          />
-        </div>
+
         {months.length > 0 && asOf && from && to && (
-          <>
-            <MonthDatePicker label="Reporting month" value={asOf} months={months} onChange={setAsOf} />
-            <MonthDatePicker label="Trend from" value={from} months={months} onChange={setRangeFrom} />
-            <MonthDatePicker label="Trend to" value={to} months={months} onChange={setRangeTo} />
-          </>
+          <FilterGroup title="Date range">
+            <div className="space-y-3">
+              <MonthDatePicker
+                label="Reporting month"
+                value={asOf}
+                months={months}
+                onChange={(m) => {
+                  triggerFilterFeedback();
+                  setAsOf(m);
+                }}
+              />
+              <div className="pt-2 border-t border-border/40 space-y-2">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Trend Window
+                </div>
+                <MonthDatePicker
+                  label="From"
+                  value={from}
+                  months={months}
+                  onChange={(m) => {
+                    triggerFilterFeedback();
+                    setRangeFrom(m);
+                  }}
+                />
+                <MonthDatePicker
+                  label="To"
+                  value={to}
+                  months={months}
+                  onChange={(m) => {
+                    triggerFilterFeedback();
+                    setRangeTo(m);
+                  }}
+                />
+              </div>
+            </div>
+          </FilterGroup>
         )}
+
         <FilterGroup
           title="Account owner"
           action={
-            <button type="button" className="text-[11px] text-muted-foreground underline" onClick={() => setOwnerPick(ownerPick ? null : [])}>
+            <button
+              type="button"
+              className="text-[11px] text-muted-foreground underline"
+              onClick={() => {
+                triggerFilterFeedback();
+                setOwnerPick(ownerPick ? null : []);
+              }}
+            >
               {ownerPick ? "All" : "None"}
             </button>
           }
@@ -207,6 +289,7 @@ export function Dashboard() {
                 label={o || "Unassigned"}
                 checked={selectedOwners.includes(o)}
                 onChange={(on) => {
+                  triggerFilterFeedback();
                   const base = ownerPick ?? owners;
                   setOwnerPick(on ? [...new Set([...base, o])] : base.filter((x) => x !== o));
                 }}
@@ -217,7 +300,14 @@ export function Dashboard() {
         <FilterGroup
           title="Client"
           action={
-            <button type="button" className="text-[11px] text-muted-foreground underline" onClick={() => setClientPick(clientPick ? null : [])}>
+            <button
+              type="button"
+              className="text-[11px] text-muted-foreground underline"
+              onClick={() => {
+                triggerFilterFeedback();
+                setClientPick(clientPick ? null : []);
+              }}
+            >
               {clientPick ? "All" : "None"}
             </button>
           }
@@ -225,7 +315,7 @@ export function Dashboard() {
           <Input
             value={clientQuery}
             onChange={(e) => setClientQuery(e.target.value)}
-            placeholder="Find a client"
+            placeholder="Find an active client"
             className="h-8"
           />
           <div className="max-h-40 space-y-1 overflow-auto">
@@ -235,6 +325,7 @@ export function Dashboard() {
                 label={c}
                 checked={selectedClients.includes(c)}
                 onChange={(on) => {
+                  triggerFilterFeedback();
                   const base = clientPick ?? clients;
                   setClientPick(on ? [...new Set([...base, c])] : base.filter((x) => x !== c));
                 }}
@@ -244,19 +335,65 @@ export function Dashboard() {
         </FilterGroup>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-6">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-medium tracking-tight">Retainers</h1>
-              <p className="text-sm text-muted-foreground">Contracted, planned, actual, and forecast hours.</p>
+      <main className="min-w-0 flex-1 overflow-y-auto relative">
+        {/* Full-screen Loading Overlay for Pull APIs */}
+        {pulling && (
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/85 backdrop-blur-md p-6 animate-in fade-in duration-200">
+            <div className="flex max-w-md w-full flex-col items-center text-center space-y-4 rounded-2xl border border-border/80 bg-card/95 p-8 shadow-2xl">
+              <div className="relative flex items-center justify-center">
+                <div className="h-16 w-16 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+                <img src="/verkeer.png" alt="Verkeer" className="absolute h-5 w-auto object-contain dark:brightness-110" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-medium text-foreground">Pulling data from APIs…</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Connecting to Everhour &amp; Monday.com boards to fetch updated time entries, contracts, and delivery schedules. This typically takes 30–60 seconds.
+                </p>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-full w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-blue-500 animate-indeterminate" />
+              </div>
+              <div className="text-[11px] text-muted-foreground animate-pulse">
+                Please wait while fresh data is being synchronized…
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Top Loading Progress Bar */}
+        <div
+          className={`sticky top-0 left-0 right-0 z-40 h-1 w-full overflow-hidden bg-primary/10 transition-opacity duration-300 ${
+            isUpdating ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <div className="h-full w-full bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 animate-indeterminate" />
+        </div>
+
+        {/* Floating Updating Pill Indicator */}
+        {isUpdating && (
+          <div className="fixed top-4 right-8 z-40 flex items-center gap-2 rounded-full border border-primary/20 bg-background/95 px-3.5 py-1.5 text-xs font-medium text-foreground shadow-lg backdrop-blur-md transition-all animate-in fade-in duration-200">
+            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span>Updating dashboard…</span>
+          </div>
+        )}
+
+        <div className={`mx-auto flex max-w-7xl flex-col gap-6 px-6 py-6 transition-opacity duration-200 ${isUpdating ? "opacity-75" : "opacity-100"}`}>
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/50 pb-5">
+            <div className="flex items-center gap-3.5">
+              <img src="/verkeer.png" alt="Verkeer" className="h-8 w-auto object-contain dark:brightness-110" />
+              <div className="space-y-0.5">
+                <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-foreground">
+                  Retainer, Capacity and Overservicing Dashboard
+                </h1>
+              </div>
             </div>
             {data && (
-              <div className="flex flex-wrap justify-end gap-1.5">
+              <div className="flex flex-wrap justify-end gap-1.5 pt-1">
                 {data.freshness.map((f) => (
                   <Badge
                     key={f.source}
                     variant={f.state.includes("Check") ? "outline" : "secondary"}
+                    className="shadow-xs text-xs font-normal"
                     title={`${f.status}. Covers ${f.period_start || "—"} to ${f.period_end || "—"}. Last success ${ageLabel(f.age_hours)}.`}
                   >
                     {f.source} · {f.state.includes("Check") ? "Check" : "Fresh"}
@@ -281,14 +418,14 @@ export function Dashboard() {
               </p>
             </Disclosure>
           )}
-          {noTime.length > 0 && asOf && (
+          {/* {noTime.length > 0 && asOf && (
             <Disclosure title={`No Everhour time for ${noTime.length} clients in ${asOf}`}>
               <p className="px-3 py-2 text-sm text-muted-foreground">
                 {noTime.join(", ")}. If time was logged, the client is probably named differently in Everhour — see Reconciliation.
               </p>
             </Disclosure>
-          )}
-          {stale && <Banner tone="warn">One or more sources are stale or only partly loaded. Affected figures may be incomplete.</Banner>}
+          )} */}
+          {/* {stale && <Banner tone="warn">One or more sources are stale or only partly loaded. Affected figures may be incomplete.</Banner>} */}
           {data && !workTypes.includes("Retainer") && (
             <Banner tone="info">
               Contracted hours relate to retainer scope. With retainer excluded, variance vs contract is not meaningful — use this view to inspect project or other time only.
@@ -307,7 +444,7 @@ export function Dashboard() {
                 <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
                 <TabsTrigger value="client">Client</TabsTrigger>
                 <TabsTrigger value="review">Review</TabsTrigger>
-                <TabsTrigger value="recon">Reconciliation</TabsTrigger>
+                <TabsTrigger value="recon">Dev Reconciliation (for Ankit)</TabsTrigger>
                 <TabsTrigger value="capacity">Capacity</TabsTrigger>
                 <TabsTrigger value="guide">Guide</TabsTrigger>
               </TabsList>

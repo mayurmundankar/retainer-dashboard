@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { isInternalClient } from "@/lib/constants";
 import { reviewItems } from "@/lib/review";
 import type { ReviewItem } from "@/lib/types";
 import { Banner, Metric } from "./bits";
@@ -18,7 +19,17 @@ export function ReviewTab({ view, onSaved }: { view: View; onSaved: () => void }
   const [edits, setEdits] = useState<Record<string, Partial<ReviewItem>>>({});
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const src = scope === "month" ? view.monthRows : view.trendRows;
+  const rawSrc = scope === "month" ? view.monthRows : view.trendRows;
+  const src = useMemo(
+    () =>
+      rawSrc.filter(
+        (r) =>
+          !isInternalClient(r.client) &&
+          !r.data_missing &&
+          ((r.actual_hours != null && r.actual_hours > 0) || r.planned_hours > 0),
+      ),
+    [rawSrc],
+  );
   const items = useMemo(() => reviewItems(src, view.payload.actionsLog), [src, view.payload.actionsLog]);
   const rows = items.map((item) => ({ ...item, ...edits[keyOf(item)] }));
   const done = rows.filter((r) => r.reason && r.action && r.owner && r.deadline).length;
@@ -75,11 +86,22 @@ export function ReviewTab({ view, onSaved }: { view: View; onSaved: () => void }
             <Metric label="Over" value={String(rows.filter((r) => r.direction === "Over").length)} />
             <Metric label="Under / data missing" value={String(rows.filter((r) => r.direction === "Under" || r.direction === "Data missing").length)} />
           </div>
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <span className="text-xs text-muted-foreground font-medium">
+              Flagged active client accounts ({rows.length})
+            </span>
+            <div className="flex items-center gap-3">
+              {note && <span className="text-xs text-muted-foreground">{note}</span>}
+              <Button onClick={save} disabled={saving} size="sm">
+                {saving ? "Saving…" : "Save actions"}
+              </Button>
+            </div>
+          </div>
           <div className="overflow-auto rounded-md border">
             <table className="w-full text-xs">
               <thead className="bg-muted/50 text-left">
                 <tr>
-                  {["Client", "Month", "Flag", "Direction", "Var (h)", "Var %", "Open deliverables", "Account owner", "Reason", "Temporary / recurring", "Action", "Action owner", "Deadline", "Hours adj.", "Status", "Notes", "Complete"].map((h) => (
+                  {["Client", "Month", "Flag", "Direction", "Var (h)", "Var %", "Open deliverables", "Account owner", "Reason for over/under delivery", "Is issue Temporary or recurring", "Action", "Action owner", "Deadline", "Hours adj.", "Status", "Notes", "Complete"].map((h) => (
                     <th key={h} className="whitespace-nowrap px-2 py-2 font-medium">{h}</th>
                   ))}
                 </tr>

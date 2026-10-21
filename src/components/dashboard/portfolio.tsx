@@ -17,20 +17,29 @@ import {
   YAxis,
   ZAxis,
 } from "recharts";
-import { ChartBox, Metric, SectionTitle, SimpleTable, StatusBadge } from "./bits";
+import { ChartBox, CtdVarBadge, Metric, SectionTitle, SimpleTable, StatusBadge } from "./bits";
 import { ChartTooltip, series, tick } from "./charts";
 import { downloadFact, hrs0, hrs1, pct1, signedPct, statusColor, statusLabel, sumMin, sumNum } from "./format";
 import { formatMonth } from "./month-picker";
+import { isInternalClient } from "@/lib/constants";
 import type { View } from "./view";
 
 export function PortfolioTab({ view }: { view: View }) {
-  const rows = [...view.monthRows].sort((a, b) => {
-    if (a.review_required !== b.review_required) return a.review_required ? -1 : 1;
-    if (a.variance_pct == null && b.variance_pct == null) return a.client.localeCompare(b.client);
-    if (a.variance_pct == null) return 1;
-    if (b.variance_pct == null) return -1;
-    return b.variance_pct - a.variance_pct || a.client.localeCompare(b.client);
-  });
+  // Only list active clients data for that specific month, skipping Verkeer and inactive accounts
+  const rows = [...view.monthRows]
+    .filter(
+      (r) =>
+        !isInternalClient(r.client) &&
+        !r.data_missing &&
+        ((r.actual_hours != null && r.actual_hours > 0) || r.planned_hours > 0),
+    )
+    .sort((a, b) => {
+      if (a.review_required !== b.review_required) return a.review_required ? -1 : 1;
+      if (a.variance_pct == null && b.variance_pct == null) return a.client.localeCompare(b.client);
+      if (a.variance_pct == null) return 1;
+      if (b.variance_pct == null) return -1;
+      return b.variance_pct - a.variance_pct || a.client.localeCompare(b.client);
+    });
   const contracted = sumMin(rows.map((r) => r.contracted_hours));
   const allocated = sumMin(rows.map((r) => r.allocated_hours));
   const planned = sumMin(rows.map((r) => r.planned_hours));
@@ -42,7 +51,7 @@ export function PortfolioTab({ view }: { view: View }) {
 
   const months = [...new Set(view.trendRows.map((r) => r.month))].sort();
   const trend = months.map((month) => {
-    const slice = view.trendRows.filter((r) => r.month === month);
+    const slice = view.trendRows.filter((r) => r.month === month && !isInternalClient(r.client));
     return {
       month,
       allocated_hours: sumNum(slice.map((r) => r.allocated_hours)),
@@ -51,7 +60,7 @@ export function PortfolioTab({ view }: { view: View }) {
       nonbillable_hours: sumNum(slice.map((r) => r.nonbillable_hours)),
     };
   });
-  const heatClients = [...new Set(view.trendRows.map((r) => r.client))].sort();
+  const heatClients = [...new Set(view.trendRows.filter((r) => !isInternalClient(r.client)).map((r) => r.client))].sort();
   const points = rows.filter((r) => r.variance_pct != null && r.ctd_variance_pct != null);
   const byStatus = new Map<string, typeof points>();
   for (const p of points) {
@@ -61,47 +70,128 @@ export function PortfolioTab({ view }: { view: View }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 xl:grid-cols-7">
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
         <Metric label="Contracted" value={hrs0(contracted)} />
         <Metric label="Allocated" value={hrs0(allocated)} hint="Seasonal allocation where agreed" />
         <Metric label="Planned (Monday)" value={hrs0(planned)} />
-        <Metric label="Actual (Everhour)" value={hrs0(actual)} hint="No data means nothing matched" />
+        <Metric label="Actual (Everhour)" value={hrs0(actual)} hint="Billable delivery hours" />
         <Metric label="Remaining estimate" value={hrs0(remaining)} />
         <Metric label="Forecast" value={hrs0(forecast)} hint={varPct == null ? null : `${signedPct(varPct)} vs allocation`} />
-        <Metric label="Accounts to review" value={String(reviews)} hint={`of ${rows.length}`} />
+        <Metric label="Accounts to review" value={String(reviews)} hint={`of ${rows.length} active`} />
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <SectionTitle>Accounts – {formatMonth(view.asOf)}</SectionTitle>
-        <Button variant="outline" size="sm" onClick={() => downloadFact(view.trendRows)}>
+        <SectionTitle badge="PROJECT OVERVIEW">
+          Accounts – {formatMonth(view.asOf)}
+        </SectionTitle>
+        <Button variant="outline" size="sm" className="shadow-xs hover:bg-muted/60" onClick={() => downloadFact(view.trendRows.filter((r) => !isInternalClient(r.client)))}>
           Download CSV
         </Button>
       </div>
-      <div className="max-h-[28rem] overflow-auto rounded-md border">
+
+      {/* Static header on vertical scroll, static 'Status' & 'Clients List' columns on horizontal scroll */}
+      <div className="max-h-[30rem] overflow-auto rounded-lg border border-border/70 shadow-xs bg-card relative">
         <SimpleTable
+          stickyHeader
           rows={rows}
           columns={[
-            { key: "status", label: "Status", render: (r) => <StatusBadge status={r.status} /> },
-            { key: "client", label: "Client" },
-            { key: "account_owner", label: "Owner", render: (r) => r.account_owner || "—" },
-            { key: "billing_model", label: "Billing" },
-            { key: "contracted_hours", label: "Contracted", render: (r) => hrs1(r.contracted_hours) },
-            { key: "allocated_hours", label: "Allocated", render: (r) => hrs1(r.allocated_hours) },
-            { key: "planned_hours", label: "Planned", render: (r) => hrs1(r.planned_hours) },
-            { key: "actual_hours", label: "Actual", render: (r) => hrs1(r.actual_hours) },
-            { key: "remaining_estimate", label: "Remaining", render: (r) => hrs1(r.remaining_estimate) },
-            { key: "forecast_hours", label: "Forecast", render: (r) => hrs1(r.forecast_hours) },
-            { key: "variance_hours", label: "Var (h)", render: (r) => hrs1(r.variance_hours) },
-            { key: "variance_pct", label: "Var %", render: (r) => pct1(r.variance_pct) },
-            { key: "ctd_contracted", label: "CTD contracted", render: (r) => hrs1(r.ctd_contracted) },
-            { key: "ctd_actual", label: "CTD actual", render: (r) => hrs1(r.ctd_actual) },
-            { key: "ctd_variance_pct", label: "CTD var %", render: (r) => pct1(r.ctd_variance_pct) },
-            { key: "nonbillable_hours", label: "Non-billable", render: (r) => hrs1(r.nonbillable_hours) },
-            { key: "deliverables_done", label: "Done" },
-            { key: "deliverables_outstanding", label: "Outstanding" },
-            { key: "deliverables_blocked", label: "Blocked" },
-            { key: "partial_month", label: "Partial month", render: (r) => (r.partial_month ? "Yes" : "") },
+            {
+              key: "status",
+              label: "Status",
+              tooltip: "Account servicing status based on variance thresholds: Over-servicing (🔴), Under-servicing (🟠), CTD alert (🟡), or On track (🟢).",
+              headerClassName: "sticky left-0 top-0 z-30 bg-card min-w-[145px] w-[145px] border-r border-border/30",
+              className: "sticky left-0 z-10 bg-card group-hover:bg-muted/50 transition-colors min-w-[145px] w-[145px] border-r border-border/30",
+              render: (r) => <StatusBadge status={r.status} />,
+            },
+            {
+              key: "client",
+              label: "Clients List",
+              tooltip: "Client account name active during this billing month.",
+              headerClassName: "sticky left-[145px] top-0 z-30 bg-card min-w-[190px] border-r-2 border-border shadow-[4px_0_8px_-3px_rgba(0,0,0,0.08)]",
+              className: "sticky left-[145px] z-10 bg-card group-hover:bg-muted/50 transition-colors min-w-[190px] border-r-2 border-border shadow-[4px_0_8px_-3px_rgba(0,0,0,0.08)] font-medium text-foreground",
+            },
+            {
+              key: "account_owner",
+              label: "POD",
+              tooltip: "Internal POD / account team owner leading the account.",
+              render: (r) => r.account_owner || "—",
+            },
+            {
+              key: "contracted_hours",
+              label: "Contracted Hours",
+              tooltip: "Agreed monthly retainer hours under current contract terms.",
+              render: (r) => hrs1(r.contracted_hours),
+            },
+            {
+              key: "planned_hours",
+              label: "Planned",
+              tooltip: "Total hours scheduled on Monday.com boards for this month.",
+              render: (r) => hrs1(r.planned_hours),
+            },
+            {
+              key: "actual_hours",
+              label: "Actual",
+              tooltip: "Billable client hours logged in Everhour so far this month (non-billable time excluded).",
+              render: (r) => hrs1(r.actual_hours),
+            },
+            {
+              key: "remaining_estimate",
+              label: "Remaining",
+              tooltip: "Estimated hours remaining on open / in-progress tasks scheduled for this month.",
+              render: (r) => hrs1(r.remaining_estimate),
+            },
+            {
+              key: "forecast_hours",
+              label: "Forecast",
+              tooltip: "Projected monthly total hours delivered: Actual logged hours + Remaining estimate.",
+              render: (r) => hrs1(r.forecast_hours),
+            },
+            {
+              key: "variance_hours",
+              label: "Var (h)",
+              tooltip: "Variance in hours between Forecast hours and Contracted / Allocated hours.",
+              render: (r) => hrs1(r.variance_hours),
+            },
+            {
+              key: "variance_pct",
+              label: "Var %",
+              tooltip: "Monthly delivery variance percentage: (Forecast - Allocated) / Allocated × 100%.",
+              render: (r) => pct1(r.variance_pct),
+            },
+            {
+              key: "ctd_contracted",
+              label: "CTD contracted",
+              tooltip: "Cumulative contracted hours from contract start to current date.",
+              render: (r) => hrs1(r.ctd_contracted),
+            },
+            {
+              key: "ctd_actual",
+              label: "CTD actual",
+              tooltip: "Cumulative billable hours delivered across the entire contract to date.",
+              render: (r) => hrs1(r.ctd_actual),
+            },
+            {
+              key: "ctd_variance_pct",
+              label: "CTD var %",
+              tooltip: "Contract-to-date variance percentage: (CTD Actual - CTD Contracted) / CTD Contracted × 100%. Color-coded by performance.",
+              render: (r) => <CtdVarBadge v={r.ctd_variance_pct} threshold={view.threshold} />,
+            },
+            {
+              key: "deliverables_done",
+              label: "Done",
+              tooltip: "Number of deliverables / tasks marked complete this month.",
+            },
+            {
+              key: "deliverables_outstanding",
+              label: "Outstanding",
+              tooltip: "Deliverables / tasks scheduled but still open or in-progress.",
+            },
+            {
+              key: "deliverables_blocked",
+              label: "Blocked",
+              tooltip: "Deliverables flagged as stuck or blocked requiring resolution.",
+            },
           ]}
         />
       </div>

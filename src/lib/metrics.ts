@@ -4,10 +4,12 @@ import {
   CTD_THRESHOLD_PCT,
   DELIVERY_STATUS_BLOCKED,
   DELIVERY_STATUS_DONE,
+  EVERHOUR_NONBILLABLE_MARKERS,
   HISTORY_START,
   PRORATE_PARTIAL_MONTHS,
   STALE_AFTER_HOURS,
   VARIANCE_THRESHOLD_PCT,
+  isInternalClient,
 } from "./constants";
 import type { CsvRow } from "./csv";
 import { cell, num } from "./csv";
@@ -58,18 +60,26 @@ function pulseId(id: string): string | null {
 export function prepareTime(entries: TimeEntry[], mapping: CsvRow[], canonicalNames: string[] = []) {
   const lookup = mappingLookup(mapping, "everhour");
   const canonical = canonicalIndex(canonicalNames);
-  const mapped: MappedTime[] = entries.map((e) => {
-    const names = mapClient(e.client, lookup, canonical);
-    const ymd = parseDate(e.date);
-    const work = e.work_type.trim() || "Unclassified";
-    return {
-      ...e,
-      ...names,
-      work_type: work,
-      ymd,
-      month: ymd ? toPeriod(ymd) : null,
-    };
-  });
+  const mapped: MappedTime[] = entries
+    .filter((e) => !isInternalClient(e.client))
+    .map((e) => {
+      const names = mapClient(e.client, lookup, canonical);
+      const ymd = parseDate(e.date);
+      const work = e.work_type.trim() || "Unclassified";
+      const isNonBillableMarker = EVERHOUR_NONBILLABLE_MARKERS.some((m) =>
+        `${e.project} ${e.task_name} ${e.category}`.toLowerCase().includes(m.toLowerCase())
+      );
+      const billable = isNonBillableMarker ? false : e.billable;
+      return {
+        ...e,
+        ...names,
+        billable,
+        work_type: work,
+        ymd,
+        month: ymd ? toPeriod(ymd) : null,
+      };
+    })
+    .filter((e) => !isInternalClient(e.client));
   const seen = new Set<string>();
   const clean: MappedTime[] = [];
   const duplicates: MappedTime[] = [];
@@ -90,11 +100,14 @@ export function prepareTime(entries: TimeEntry[], mapping: CsvRow[], canonicalNa
 export function preparePlanned(items: PlannedRaw[], mapping: CsvRow[], canonicalNames: string[] = []) {
   const lookup = mappingLookup(mapping, "monday");
   const canonical = canonicalIndex(canonicalNames);
-  const all: MappedPlanned[] = items.map((item) => {
-    const names = mapClient(item.client, lookup, canonical);
-    const work = item.work_type.trim() || "Unclassified";
-    return { ...item, ...names, work_type: work, monthPeriod: parseMonth(item.month) };
-  });
+  const all: MappedPlanned[] = items
+    .filter((item) => !isInternalClient(item.client))
+    .map((item) => {
+      const names = mapClient(item.client, lookup, canonical);
+      const work = item.work_type.trim() || "Unclassified";
+      return { ...item, ...names, work_type: work, monthPeriod: parseMonth(item.month) };
+    })
+    .filter((item) => !isInternalClient(item.client));
   return {
     planned: all.filter((p) => p.monthPeriod),
     noMonth: all.filter((p) => !p.monthPeriod),
@@ -247,7 +260,7 @@ export function buildFactTable(
   now: YMD = today(),
 ) {
   const current = toPeriod(now);
-  const canonicalNames = data.contracts.map((c) => c.client);
+  const canonicalNames = data.contracts.map((c) => c.client).filter((c) => !isInternalClient(c));
   const { clean: timeClean, duplicates } = prepareTime(data.timeEntries, data.clientMapping, canonicalNames);
   const { planned, noMonth } = preparePlanned(data.plannedItems, data.clientMapping, canonicalNames);
 
@@ -338,7 +351,10 @@ export function buildFactTable(
     plan.set(key, cur);
   }
 
-  const base = contractedByMonth(data.contracts, months);
+  const base = contractedByMonth(
+    data.contracts.filter((c) => !isInternalClient(c.client)),
+    months,
+  );
   const fact: Fact[] = base.map((row) => {
     const key = `${row.client}\t${row.month}`;
     const entries = entryCount.get(key) ?? 0;

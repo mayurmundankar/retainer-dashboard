@@ -1,4 +1,4 @@
-import { BILLABLE_VIEWS, REASONS, NATURE, ACTIONS, ACTION_STATUS } from "./constants";
+import { BILLABLE_VIEWS, REASONS, NATURE, ACTIONS, ACTION_STATUS, isInternalClient } from "./constants";
 import { dataSource } from "./config";
 import { cell } from "./csv";
 import { loadAll } from "./data-layer";
@@ -22,39 +22,43 @@ export async function getDashboard(workTypes: string[], billableView: string, th
   const workTypesFound = new Set<string>(["Retainer", "Project"]);
   for (const t of data.timeEntries) workTypesFound.add((t.work_type || "").trim() || "Unclassified");
 
-  const contracts: ContractRow[] = data.contracts.map((c) => ({
-    contract_id: c.contract_id,
-    client: c.client,
-    account_owner: c.account_owner,
-    contract_start: fmt(c.contract_start),
-    contract_end: fmt(c.contract_end),
-    effective_from: fmt(c.effective_from),
-    monthly_hours: c.monthly_hours,
-    billing_model: c.billing_model,
-    notes: c.notes,
-    service: c.service,
-    contract_source: c.contract_source,
-  }));
+  const contracts: ContractRow[] = data.contracts
+    .filter((c) => !isInternalClient(c.client))
+    .map((c) => ({
+      contract_id: c.contract_id,
+      client: c.client,
+      account_owner: c.account_owner,
+      contract_start: fmt(c.contract_start),
+      contract_end: fmt(c.contract_end),
+      effective_from: fmt(c.effective_from),
+      monthly_hours: c.monthly_hours,
+      billing_model: c.billing_model,
+      notes: c.notes,
+      service: c.service,
+      contract_source: c.contract_source,
+    }));
 
-  const clientInfo: ClientInfo[] = data.clientInfo.map((r) => ({
-    client: cell(r, "client"),
-    board_id: cell(r, "board_id"),
-    board_name: cell(r, "board_name"),
-    owner: cell(r, "owner"),
-    support: cell(r, "support"),
-    escalation: cell(r, "escalation"),
-    start_date: cell(r, "start_date"),
-    hours_lines: cell(r, "hours_lines"),
-    total_monthly_hours: cell(r, "total_monthly_hours"),
-    email: cell(r, "email"),
-    website: cell(r, "website"),
-    contract_link: cell(r, "contract_link"),
-    digital_plan: cell(r, "digital_plan"),
-    brand_guidelines: cell(r, "brand_guidelines"),
-    client_guide: cell(r, "client_guide"),
-    other_links: cell(r, "other_links"),
-    parse_issues: cell(r, "parse_issues"),
-  }));
+  const clientInfo: ClientInfo[] = data.clientInfo
+    .filter((r) => !isInternalClient(cell(r, "client")))
+    .map((r) => ({
+      client: cell(r, "client"),
+      board_id: cell(r, "board_id"),
+      board_name: cell(r, "board_name"),
+      owner: cell(r, "owner"),
+      support: cell(r, "support"),
+      escalation: cell(r, "escalation"),
+      start_date: cell(r, "start_date"),
+      hours_lines: cell(r, "hours_lines"),
+      total_monthly_hours: cell(r, "total_monthly_hours"),
+      email: cell(r, "email"),
+      website: cell(r, "website"),
+      contract_link: cell(r, "contract_link"),
+      digital_plan: cell(r, "digital_plan"),
+      brand_guidelines: cell(r, "brand_guidelines"),
+      client_guide: cell(r, "client_guide"),
+      other_links: cell(r, "other_links"),
+      parse_issues: cell(r, "parse_issues"),
+    }));
 
   const monthSource = new Map<string, { client: string; month_source: string; items: number; hours: number }>();
   for (const p of built.planned) {
@@ -79,7 +83,10 @@ export async function getDashboard(workTypes: string[], billableView: string, th
     months: built.months,
     current: built.current,
     today: built.today,
-    incompleteClients: data.contractsIncomplete.map((c) => c.client).sort(),
+    incompleteClients: data.contractsIncomplete
+      .map((c) => c.client)
+      .filter((c) => !isInternalClient(c))
+      .sort(),
     freshness: freshnessStatus(data.refreshLog),
     fact: built.fact,
     contracts,

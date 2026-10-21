@@ -1,5 +1,5 @@
-import { hoursOnBoardLine } from "./board-info";
-import { ACTION_COLUMNS, INTERNAL_CLIENTS } from "./constants";
+import { extractOwnerFromDescription, hoursOnBoardLine, ownerName } from "./board-info";
+import { ACTION_COLUMNS, INTERNAL_CLIENTS, isInternalClient } from "./constants";
 import { asBool, cell, num, readCsv, tidy, writeCsv, type CsvRow } from "./csv";
 import { addYears, fmt, nowIso, parseDate, today, type YMD } from "./dates";
 import { bucketName, listObjects, supabaseConfigured, uploadLocalCsvs } from "./storage";
@@ -88,21 +88,87 @@ export type Loaded = {
   dataUpdatedAt: string;
 };
 
+const CLIENT_POD_DIRECTORY: Record<string, "Kayleigh" | "Sam"> = {
+  // Pod Kayleigh
+  "hacker": "Kayleigh",
+  "ha cker": "Kayleigh",
+  "häcker": "Kayleigh",
+  "suited & booted": "Kayleigh",
+  "pooky": "Kayleigh",
+  "stanton aviation": "Kayleigh",
+  "the gallery home": "Kayleigh",
+  "breathe home maintenance": "Kayleigh",
+  "haus & haus": "Kayleigh",
+  "haus & haus holidays": "Kayleigh",
+  "matw": "Kayleigh",
+
+  // Pod Sam
+  "bm steel / ims": "Sam",
+  "bm steel": "Sam",
+  "ims": "Sam",
+  "frasers": "Sam",
+  "mhdv": "Sam",
+  "rldatix": "Sam",
+  "lta": "Sam",
+  "nixon peabody": "Sam",
+  "nixon peabody trust company": "Sam",
+  "swiftdoctor": "Sam",
+  "brandpie": "Sam",
+  "smart salem": "Sam",
+  "green home systems": "Sam",
+  "andrew wright windows": "Sam",
+  "aztec group": "Sam",
+  "aztec": "Sam",
+  "magmutual": "Sam",
+  "firmus energy": "Sam",
+  "apetito": "Sam",
+  "urisk": "Sam",
+  "amicus": "Sam",
+  "pwm": "Sam",
+  "power of 0": "Sam",
+};
+
+export function resolveClientOwner(clientName: string, rawOwner?: string | null, notes?: string): "Kayleigh" | "Sam" {
+  const norm = (s: string) => s.trim().toLowerCase();
+  const raw = norm(rawOwner || "");
+  if (raw.includes("kayleigh") || raw.includes("tamires") || raw.includes("luther") || raw.includes("gus")) {
+    return "Kayleigh";
+  }
+  if (raw.includes("sam") || raw.includes("rod") || raw.includes("damien") || raw.includes("matt") || raw.includes("leah")) {
+    return "Sam";
+  }
+  if (notes) {
+    const fromNotes = extractOwnerFromDescription(notes);
+    if (fromNotes) {
+      const fn = norm(fromNotes);
+      if (fn.includes("kayleigh") || fn.includes("tamires") || fn.includes("luther") || fn.includes("gus")) return "Kayleigh";
+      if (fn.includes("sam") || fn.includes("rod") || fn.includes("damien") || fn.includes("matt") || fn.includes("leah")) return "Sam";
+    }
+  }
+  const key = norm(clientName);
+  for (const [pattern, pod] of Object.entries(CLIENT_POD_DIRECTORY)) {
+    if (key === pattern || key.includes(pattern) || pattern.includes(key)) {
+      return pod;
+    }
+  }
+  return "Kayleigh";
+}
+
 function cleanContracts(rows: CsvRow[], source: string): { ok: Contract[]; bad: { client: string }[] } {
   const openEnd = addYears(today(), 5);
   const ok: Contract[] = [];
   const bad: { client: string }[] = [];
   for (const row of rows) {
     const client = tidy(cell(row, "client")).normalize("NFC");
-    if (!client) continue;
+    if (!client || isInternalClient(client)) continue;
     const start = parseDate(cell(row, "contract_start"));
     const end = parseDate(cell(row, "contract_end")) ?? openEnd;
     const effective = parseDate(cell(row, "effective_from")) ?? start;
     const hours = boardHours(row) ?? num(cell(row, "monthly_hours"));
-    const owner = cell(row, "account_owner");
+    const notes = cell(row, "notes");
+    const owner = resolveClientOwner(client, cell(row, "account_owner"), notes);
     let billing = cell(row, "billing_model");
     if (!billing) billing = "Standard";
-    const notes = cell(row, "notes");
     let contractId = cell(row, "contract_id");
     if (!contractId) contractId = `C-${client}`;
     if (!start || !effective || hours == null) {
@@ -268,23 +334,27 @@ export async function loadAll(): Promise<Loaded> {
   const data: Loaded = {
     contracts: merged.contracts,
     contractsIncomplete: merged.incomplete,
-    seasonal,
-    timeEntries: timeEntries.map((r) => ({
-      entry_id: cell(r, "entry_id"),
-      date: cell(r, "date"),
-      client: cell(r, "client"),
-      project: cell(r, "project"),
-      task_id: cell(r, "task_id"),
-      task_name: cell(r, "task_name"),
-      user: cell(r, "user"),
-      hours: num(cell(r, "hours")) ?? 0,
-      billable: asBool(r.billable),
-      work_type: cell(r, "work_type"),
-      category: cell(r, "category"),
-    })),
-    plannedItems: applyBoardClients(loadPlanned(plannedItems), boards),
-    tracker,
-    clientMapping,
+    seasonal: seasonal.filter((r) => !isInternalClient(cell(r, "client"))),
+    timeEntries: timeEntries
+      .filter((r) => !isInternalClient(cell(r, "client")))
+      .map((r) => ({
+        entry_id: cell(r, "entry_id"),
+        date: cell(r, "date"),
+        client: cell(r, "client"),
+        project: cell(r, "project"),
+        task_id: cell(r, "task_id"),
+        task_name: cell(r, "task_name"),
+        user: cell(r, "user"),
+        hours: num(cell(r, "hours")) ?? 0,
+        billable: asBool(r.billable),
+        work_type: cell(r, "work_type"),
+        category: cell(r, "category"),
+      })),
+    plannedItems: applyBoardClients(loadPlanned(plannedItems), boards).filter((p) => !isInternalClient(p.client)),
+    tracker: tracker.filter((r) => !isInternalClient(cell(r, "client"))),
+    clientMapping: clientMapping.filter(
+      (r) => !isInternalClient(cell(r, "canonical_client")) && !isInternalClient(cell(r, "source_name")),
+    ),
     team: team.map((r) => ({
       user: cell(r, "user"),
       discipline: cell(r, "discipline"),
@@ -299,8 +369,19 @@ export async function loadAll(): Promise<Loaded> {
       return [{ user, month, leave_hours }];
     }),
     refreshLog,
-    actions,
-    clientInfo,
+    actions: actions.filter((r) => !isInternalClient(cell(r, "client"))),
+    clientInfo: clientInfo
+      .filter((r) => !isInternalClient(cell(r, "client")))
+      .map((r) => {
+        const c = cell(r, "client");
+        const currentOwner = cell(r, "owner");
+        const desc = cell(r, "description");
+        const resolved = resolveClientOwner(c, currentOwner, desc);
+        return {
+          ...r,
+          owner: resolved || currentOwner,
+        };
+      }),
     storage: supabaseConfigured() ? "supabase" : "local",
     dataUpdatedAt,
   };

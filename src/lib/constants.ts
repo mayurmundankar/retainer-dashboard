@@ -14,6 +14,12 @@ export const DEFAULT_BILLABLE_VIEW = "Billable only";
 
 export const INTERNAL_CLIENTS = ["Verkeer"];
 
+export function isInternalClient(client: string | null | undefined): boolean {
+  if (!client) return false;
+  const lower = client.trim().toLowerCase();
+  return INTERNAL_CLIENTS.some((c) => c.toLowerCase() === lower);
+}
+
 export const REASONS = [
   "",
   "Onboarding",

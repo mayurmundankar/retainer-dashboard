@@ -28,6 +28,13 @@ export function pct1(v: number | null | undefined): string {
   return `${v.toFixed(1)}%`;
 }
 
+export function ctdVarClass(v: number | null | undefined, threshold = 10): string {
+  if (v == null || Number.isNaN(v)) return "";
+  if (v > threshold) return "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/25";
+  if (v < -threshold) return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25";
+  return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25";
+}
+
 export function signedPct(v: number | null | undefined): string | null {
   if (v == null || Number.isNaN(v)) return null;
   const n = `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;

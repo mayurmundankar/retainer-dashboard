@@ -7,6 +7,7 @@ import {
   MONDAY_COLUMN_TITLES,
   MONDAY_DEFAULT_WORK_TYPE,
   MONDAY_NONBILLABLE_VALUES,
+  isInternalClient,
 } from "./constants";
 import { boardClientLookup, everhourApiKey, mondayApiToken, mondayBoardIds } from "./config";
 import { cell, num, readCsv, writeCsv } from "./csv";
@@ -43,36 +44,61 @@ export async function fetchEverhourTime(apiKey: string, dateFrom: string, dateTo
   for (const c of clients) for (const pid of c.projects ?? []) projectClient.set(String(pid), c.name);
 
   const records = (await everhourGet("/team/time", apiKey, { from: dateFrom, to: dateTo })) as Record<string, unknown>[];
-  return records.map((rec) => {
-    const task = (rec.task ?? {}) as { projects?: (string | number)[]; name?: string; id?: string | number };
-    const pid = task.projects?.[0];
-    const pname = pid != null ? projects.get(String(pid))?.name ?? "" : "";
-    const tname = task.name ?? "";
-    const label = `${pname} ${tname}`;
-    const lower = label.toLowerCase();
-    const nonbillable = EVERHOUR_NONBILLABLE_MARKERS.some((m) => lower.includes(m.toLowerCase()));
-    const category = lower.includes("senior support")
-      ? "Senior support"
-      : lower.includes("rework")
-        ? "Rework"
-        : lower.includes("meeting")
-          ? "Meetings"
-          : "Delivery";
-    const seconds = Number(rec.time ?? 0);
-    return {
-      entry_id: `EH-${rec.id ?? ""}`,
-      date: String(rec.date ?? ""),
-      client: (pid != null ? projectClient.get(String(pid)) : "") || pname,
-      project: pname,
-      task_id: String(task.id ?? ""),
-      task_name: tname,
-      user: users.get(String(rec.user ?? "")) ?? String(rec.user ?? ""),
-      hours: Math.round((seconds / 3600) * 100) / 100,
-      billable: nonbillable ? "False" : "True",
-      work_type: pname.toLowerCase().includes("project") && !pname.toLowerCase().includes("retainer") ? "Project" : "Retainer",
-      category,
-    };
-  });
+  return records
+    .map((rec) => {
+      const task = (rec.task ?? {}) as {
+        projects?: (string | number)[];
+        name?: string;
+        id?: string | number;
+        attributes?: Record<string, string>;
+      };
+      const pid = task.projects?.[0];
+      const pname = pid != null ? projects.get(String(pid))?.name ?? "" : "";
+      const tname = task.name ?? "";
+      const label = `${pname} ${tname}`;
+      const lower = label.toLowerCase();
+
+      // Check task attributes from Monday/Everhour for billable flag
+      const billableAttr = (task.attributes?.["Billable vs Non"] || task.attributes?.["Billable"] || "").trim().toLowerCase();
+      const typeAttr = (task.attributes?.["Type"] || task.attributes?.["Task Type"] || "").trim();
+      const typeLower = typeAttr.toLowerCase();
+
+      const isExplicitNonBillable = billableAttr.includes("non");
+      const isExplicitBillable = billableAttr.includes("billable") && !isExplicitNonBillable;
+      const isMarkerNonBillable = EVERHOUR_NONBILLABLE_MARKERS.some((m) => lower.includes(m.toLowerCase()));
+      const isTypeNonBillable = MONDAY_NONBILLABLE_VALUES.some((v) => typeLower === v.toLowerCase());
+
+      const isNonBillable = isExplicitNonBillable || isMarkerNonBillable || isTypeNonBillable;
+      const isBillable = isExplicitBillable ? true : !isNonBillable;
+
+      let category = "Delivery";
+      if (typeAttr && !typeLower.includes("please select")) {
+        category = typeAttr;
+      } else if (lower.includes("senior support")) {
+        category = "Senior support";
+      } else if (lower.includes("rework")) {
+        category = "Rework";
+      } else if (lower.includes("meeting")) {
+        category = "Meetings";
+      }
+
+      const clientName = (pid != null ? projectClient.get(String(pid)) : "") || pname;
+      const seconds = Number(rec.time ?? 0);
+      return {
+        entry_id: `EH-${rec.id ?? ""}`,
+        date: String(rec.date ?? ""),
+        client: clientName,
+        project: pname,
+        task_id: String(task.id ?? ""),
+        task_name: tname,
+        user: users.get(String(rec.user ?? "")) ?? String(rec.user ?? ""),
+        hours: Math.round((seconds / 3600) * 100) / 100,
+        billable: isBillable ? "True" : "False",
+        work_type: pname.toLowerCase().includes("project") && !pname.toLowerCase().includes("retainer") ? "Project" : "Retainer",
+        category,
+      };
+    })
+    .filter((r) => !isInternalClient(r.client));
 }
 
 const MONTH_NAMES: Record<string, number> = {

@@ -8,7 +8,18 @@ const HOURS_AFTER =
   /^\s*([A-Za-z][A-Za-z &/+\-]{0,30}):\s*(\d+(?:[.,]\d+)?\s*(?:hours|hrs|hr|h)\b.*)$/i;
 const UNTIL = /\b(?:till|until|to|ends?|ending|through|thru)\b\s+(.+?)(?:\)|,|;|$)/i;
 const FROM = /\b(?:from|starting|starts?)\b\s+(.+?)(?:\)|,|;|\btill\b|\buntil\b|$)/i;
-const OWNER_KEYS = ["owner", "account owner", "account manager", "am", "lead"];
+const OWNER_KEYS = [
+  "owner",
+  "manager",
+  "managers",
+  "account owner",
+  "account manager",
+  "account managers",
+  "am",
+  "lead",
+  "pod",
+  "pod lead",
+];
 const START_KEYS = new Set(["start date", "start", "contract start", "start month", "contract start date"]);
 const END_KEYS = new Set(["end date", "end", "contract end", "contract end date", "renewal date", "renewal"]);
 const MONTHS: Record<string, number> = {
@@ -110,9 +121,33 @@ export function hoursOnBoardLine(rest: string): number | null {
   return total;
 }
 
-function ownerName(text: string): string {
-  const first = text.trim().split(/\s*(?:\/|,|&|\band\b)\s*/)[0] ?? "";
-  return first.replace(/\s*\(.*?\)/g, "").trim();
+export function ownerName(text: string): string {
+  if (!text) return "";
+  let first = text.trim().split(/\s*(?:\/|,|&|\band\b)\s*/)[0] ?? "";
+  first = first.replace(/\s*\(.*?\)/g, "").trim();
+  if (first.includes("@")) {
+    const user = first.split("@")[0].trim();
+    return user ? user.charAt(0).toUpperCase() + user.slice(1) : "";
+  }
+  const word = first.split(/\s+/).filter(Boolean)[0] || "";
+  return word ? word.charAt(0).toUpperCase() + word.slice(1) : "";
+}
+
+export function extractOwnerFromDescription(description: string): string {
+  const text = cleanDescription(description);
+  const lines = text.split("\n");
+  const fields: Record<string, string> = {};
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.includes(":") && !/^https?:/i.test(trimmed)) {
+      const idx = trimmed.indexOf(":");
+      const key = trimmed.slice(0, idx).trim().toLowerCase();
+      const val = trimmed.slice(idx + 1).trim();
+      if (!(key in fields) && val) fields[key] = val;
+    }
+  }
+  const raw = OWNER_KEYS.map((k) => fields[k]).find(Boolean) ?? "";
+  return ownerName(raw);
 }
 
 export function parseBoardDescription(
