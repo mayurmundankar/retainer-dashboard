@@ -21,12 +21,19 @@ import type { View } from "./view";
 export function CapacityTab({ view }: { view: View }) {
   const monthRows = view.payload.capacity.filter((r) => r.month === view.asOf);
   const trend = view.payload.capacity.filter((r) => r.month >= view.range[0] && r.month <= view.range[1]);
+  const chartMonthRows = monthRows.map((r) => ({
+    ...r,
+    capacity_hours: r.capacity_hours != null ? Math.round(r.capacity_hours) : 0,
+    client_hours_planned: r.client_hours_planned != null ? Math.round(r.client_hours_planned) : 0,
+    client_hours_actual: r.client_hours_actual != null ? Math.round(r.client_hours_actual) : 0,
+  }));
   const disciplines = [...new Set(view.payload.capacity.map((r) => r.discipline))];
   const months = [...new Set(trend.map((r) => r.month))].sort();
   const lineData = months.map((month) => {
     const row: Record<string, string | number | null> = { month };
     for (const d of disciplines) {
-      row[d] = trend.find((r) => r.month === month && r.discipline === d)?.planned_load_pct ?? null;
+      const val = trend.find((r) => r.month === month && r.discipline === d)?.planned_load_pct;
+      row[d] = val != null ? Math.round(val) : null;
     }
     return row;
   });
@@ -45,10 +52,10 @@ export function CapacityTab({ view }: { view: View }) {
       <div className="grid gap-3 xl:grid-cols-2">
         <ChartBox title={`Demand vs capacity by discipline – ${view.asOf}`}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={monthRows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+            <BarChart data={chartMonthRows} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
               <CartesianGrid stroke="var(--border)" vertical={false} />
               <XAxis dataKey="discipline" tick={tick} interval={0} angle={-25} textAnchor="end" height={64} />
-              <YAxis tick={tick} width={40} />
+              <YAxis tick={tick} width={45} tickFormatter={(v) => `${Math.round(v)}`} />
               <ChartTooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="capacity_hours" name="Capacity" fill={series.capacity} radius={[3, 3, 0, 0]} />
@@ -62,7 +69,7 @@ export function CapacityTab({ view }: { view: View }) {
             <LineChart key={view.range.join(":")} data={lineData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="var(--border)" vertical={false} />
               <XAxis dataKey="month" tick={tick} />
-              <YAxis tick={tick} width={40} unit="%" />
+              <YAxis tick={tick} width={45} unit="%" tickFormatter={(v) => `${Math.round(v)}%`} />
               <ChartTooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <ReferenceLine y={100} stroke="var(--destructive)" strokeDasharray="3 3" />

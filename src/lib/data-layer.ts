@@ -395,22 +395,49 @@ export function invalidateCache() {
 
 export async function saveActions(edited: Record<string, unknown>[]) {
   const existing = await readCsv(filePath("actions"));
-  const textCols = ["reason", "nature", "action", "owner", "notes"];
+  const textCols = ["reason", "nature", "action", "owner", "notes", "hours_adjustment"];
   const stamp = nowIso();
-  const fresh: Record<string, unknown>[] = [];
+
+  // Index existing actions by unique key (client + month + flag_type)
+  const actionMap = new Map<string, Record<string, unknown>>();
+  for (const row of existing) {
+    const client = String(row.client ?? "").trim();
+    const month = String(row.month ?? "").trim();
+    const flagType = String(row.flag_type ?? "").trim();
+    if (client && month) {
+      actionMap.set(`${client.toLowerCase()}\t${month}\t${flagType}`, row);
+    }
+  }
+
+  let changed = false;
   for (const row of edited) {
+    const client = String(row.client ?? "").trim();
+    const month = String(row.month ?? "").trim();
+    const flagType = String(row.flag_type ?? "").trim();
+    if (!client || !month) continue;
+
+    const key = `${client.toLowerCase()}\t${month}\t${flagType}`;
     const hasText = textCols.some((c) => String(row[c] ?? "").trim() !== "");
     const deadline = parseDate(row.deadline);
-    const status = String(row.status ?? "Open");
-    if (!hasText && !deadline && status === "Open") continue;
-    const out: Record<string, unknown> = {};
-    for (const c of ACTION_COLUMNS) out[c] = row[c] ?? "";
-    out.updated_at = stamp;
-    out.deadline = deadline ? fmt(deadline) : "";
-    fresh.push(out);
+    const status = String(row.status ?? "Open").trim() || "Open";
+
+    if (hasText || deadline || status !== "Open") {
+      const out: Record<string, unknown> = {};
+      for (const c of ACTION_COLUMNS) out[c] = row[c] ?? "";
+      out.client = client;
+      out.month = month;
+      out.flag_type = flagType;
+      out.status = status;
+      out.updated_at = stamp;
+      out.deadline = deadline ? fmt(deadline) : (row.deadline ? String(row.deadline) : "");
+      actionMap.set(key, out);
+      changed = true;
+    }
   }
-  if (!fresh.length) return;
-  await writeCsv(filePath("actions"), [...existing, ...fresh], [...ACTION_COLUMNS]);
+
+  if (!changed) return;
+  const merged = Array.from(actionMap.values());
+  await writeCsv(filePath("actions"), merged, [...ACTION_COLUMNS]);
   invalidateCache();
 }
 

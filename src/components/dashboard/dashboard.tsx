@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { RotateCw, CloudDownload } from "lucide-react";
 import { isInternalClient } from "@/lib/constants";
 import type { DashboardPayload } from "@/lib/types";
 import { CapacityTab } from "./capacity-tab";
@@ -167,24 +169,51 @@ export function Dashboard() {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
-      <aside className="flex w-64 shrink-0 flex-col gap-5 overflow-y-auto border-r border-border/70 bg-gradient-to-b from-sidebar via-sidebar to-sidebar/95 px-4 py-5 shadow-xs">
-        <div className="flex items-center gap-2.5 px-0.5 pb-1 border-b border-border/40">
-          <img src="/verkeer.png" alt="Verkeer" className="h-6 w-auto object-contain dark:brightness-110" />
-        </div>
-        <div className="flex gap-2">
-          <Button id="reload-btn" variant="outline" size="sm" className="flex-1 shadow-xs bg-card hover:bg-muted/70" onClick={() => void load()} disabled={loading}>
-            {loading ? "Loading…" : "Reload"}
-          </Button>
+      <aside className="flex w-64 shrink-0 flex-col gap-5 overflow-y-auto overflow-x-hidden border-r border-border/70 bg-gradient-to-b from-sidebar via-sidebar to-sidebar/95 px-4 py-5 shadow-xs">
+        {/* <div className="flex items-center gap-2.5 px-0.5 pb-2 border-b-2 border-[#4b439d]/20">
+          <img src="/verkeer-logo.svg" alt="Verkeer" className="h-7 w-auto object-contain dark:brightness-110" />
+        </div> */}
+        <div className="flex flex-col gap-2.5">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  id="refresh-btn"
+                  size="sm"
+                  className="w-full h-8.5 rounded-full font-bold uppercase text-[11px] tracking-wider border border-border/80 bg-card text-foreground hover:bg-[#121212] hover:text-white transition-all shadow-[2px_2px_0px_#4b439d] inline-flex items-center justify-center gap-2 cursor-pointer"
+                  onClick={() => void load()}
+                  disabled={loading}
+                >
+                  <RotateCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+                  <span>{loading ? "Refreshing…" : "Refresh"}</span>
+                </Button>
+              }
+            />
+            <TooltipContent side="right" className="max-w-xs text-xs">
+              <strong>Refresh:</strong> Reloads local cached data and updates all metrics, filters, and charts instantly without fetching from external APIs.
+            </TooltipContent>
+          </Tooltip>
+
           {data?.dataSource === "api" && (
-            <Button
-              id="pull-apis-btn"
-              size="sm"
-              className="flex-1 shadow-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-0 font-medium"
-              onClick={() => void pull()}
-              disabled={pulling}
-            >
-              {pulling ? "Pulling…" : "Pull APIs"}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    id="fetch-live-data-btn"
+                    size="sm"
+                    className="w-full h-8.5 rounded-full font-bold uppercase text-[11px] tracking-wider bg-[#121212] hover:bg-[#b5018b] text-white border-0 transition-all shadow-[2px_2px_0px_#99d132] inline-flex items-center justify-center gap-2 cursor-pointer"
+                    onClick={() => void pull()}
+                    disabled={pulling}
+                  >
+                    <CloudDownload className={`size-3.5 ${pulling ? "animate-bounce" : ""}`} />
+                    <span>{pulling ? "Fetching…" : "Fetch Live Data"}</span>
+                  </Button>
+                }
+              />
+              <TooltipContent side="right" className="max-w-xs text-xs">
+                <strong>Fetch Live Data:</strong> Connects to external APIs (Everhour &amp; Monday.com) to synchronize the latest live hours, deliverables, and board records.
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
         {pullNotes.length > 0 && (
@@ -216,7 +245,11 @@ export function Dashboard() {
                 type="button"
                 size="sm"
                 variant={billable === v ? "secondary" : "ghost"}
-                className="justify-start"
+                className={
+                  billable === v
+                    ? "justify-start bg-[#b5018b]/15 text-[#b5018b] dark:text-[#f472b6] font-bold border border-[#b5018b]/30 shadow-xs"
+                    : "justify-start text-foreground/80 hover:text-foreground"
+                }
                 onClick={() => {
                   triggerFilterFeedback();
                   setBillable(v);
@@ -341,50 +374,54 @@ export function Dashboard() {
           <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/85 backdrop-blur-md p-6 animate-in fade-in duration-200">
             <div className="flex max-w-md w-full flex-col items-center text-center space-y-4 rounded-2xl border border-border/80 bg-card/95 p-8 shadow-2xl">
               <div className="relative flex items-center justify-center">
-                <div className="h-16 w-16 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
-                <img src="/verkeer.png" alt="Verkeer" className="absolute h-5 w-auto object-contain dark:brightness-110" />
+                <div className="h-16 w-16 animate-spin rounded-full border-4 border-[#b5018b]/20 border-t-[#b5018b]" />
+                <img src="/verkeer-logo.svg" alt="Verkeer" className="absolute h-5 w-auto object-contain dark:brightness-110" />
               </div>
               <div className="space-y-1.5">
-                <h3 className="text-lg font-medium text-foreground">Pulling data from APIs…</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                <h3 className="text-lg font-bold text-foreground">Pulling data from APIs…</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed font-light">
                   Connecting to Everhour &amp; Monday.com boards to fetch updated time entries, contracts, and delivery schedules. This typically takes 30–60 seconds.
                 </p>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-blue-500 animate-indeterminate" />
+                <div className="h-full w-full bg-gradient-to-r from-[#b5018b] via-[#4b439d] to-[#01abc8] animate-indeterminate" />
               </div>
-              <div className="text-[11px] text-muted-foreground animate-pulse">
+              <div className="text-[11px] text-muted-foreground animate-pulse font-light">
                 Please wait while fresh data is being synchronized…
               </div>
             </div>
           </div>
         )}
 
-        {/* Top Loading Progress Bar */}
+        {/* Top Loading Progress Bar - Verkeer brand gradient */}
         <div
-          className={`sticky top-0 left-0 right-0 z-40 h-1 w-full overflow-hidden bg-primary/10 transition-opacity duration-300 ${
+          className={`sticky top-0 left-0 right-0 z-40 h-1 w-full overflow-hidden bg-[#b5018b]/10 transition-opacity duration-300 ${
             isUpdating ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
         >
-          <div className="h-full w-full bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 animate-indeterminate" />
+          <div className="h-full w-full bg-gradient-to-r from-[#b5018b] via-[#4b439d] via-[#01abc8] to-[#99d132] animate-indeterminate" />
         </div>
 
         {/* Floating Updating Pill Indicator */}
         {isUpdating && (
-          <div className="fixed top-4 right-8 z-40 flex items-center gap-2 rounded-full border border-primary/20 bg-background/95 px-3.5 py-1.5 text-xs font-medium text-foreground shadow-lg backdrop-blur-md transition-all animate-in fade-in duration-200">
-            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span>Updating dashboard…</span>
+          <div className="fixed top-4 right-8 z-40 flex items-center gap-2 rounded-full border border-[#b5018b]/30 bg-background/95 px-4 py-1.5 text-xs font-semibold text-foreground shadow-[3px_3px_0px_#b5018b] backdrop-blur-md transition-all animate-in fade-in duration-200">
+            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#b5018b] border-t-transparent" />
+            <span className="tracking-wide uppercase text-[11px]">Updating dashboard…</span>
           </div>
         )}
 
         <div className={`mx-auto flex max-w-7xl flex-col gap-6 px-6 py-6 transition-opacity duration-200 ${isUpdating ? "opacity-75" : "opacity-100"}`}>
-          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/50 pb-5">
-            <div className="flex items-center gap-3.5">
-              <img src="/verkeer.png" alt="Verkeer" className="h-8 w-auto object-contain dark:brightness-110" />
-              <div className="space-y-0.5">
-                <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-foreground">
-                  Retainer, Capacity and Overservicing Dashboard
+          {/* Main Brand Header with PDF borders & Raleway typography */}
+          <div className="flex flex-wrap items-start justify-between gap-4 pb-5 border-b-2 border-[#4b439d]/25">
+            <div className="flex items-center gap-4">
+              <img src="/verkeer-logo.svg" alt="Verkeer" className="h-13 w-auto object-contain dark:brightness-110" />
+              <div className="space-y-0.5 border-l-2 border-[#b5018b] pl-3.5">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground uppercase">
+                  Retainer, Capacity &amp; Overservicing Dashboard
                 </h1>
+                <p className="text-xs sm:text-sm font-light text-muted-foreground tracking-wide">
+                  Contracted, planned, actual, and forecast performance hours
+                </p>
               </div>
             </div>
             {data && (
@@ -393,9 +430,10 @@ export function Dashboard() {
                   <Badge
                     key={f.source}
                     variant={f.state.includes("Check") ? "outline" : "secondary"}
-                    className="shadow-xs text-xs font-normal"
+                    className="shadow-xs text-xs font-medium rounded-full px-2.5 py-0.5 border-border/80"
                     title={`${f.status}. Covers ${f.period_start || "—"} to ${f.period_end || "—"}. Last success ${ageLabel(f.age_hours)}.`}
                   >
+                    <span className="size-1.5 rounded-full mr-1.5" style={{ backgroundColor: f.state.includes("Check") ? "#ea580c" : "#99d132" }} />
                     {f.source} · {f.state.includes("Check") ? "Check" : "Fresh"}
                   </Badge>
                 ))}
@@ -494,9 +532,9 @@ function FilterGroup({ title, action, children }: { title: string; action?: Reac
 
 function CheckRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (on: boolean) => void }) {
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label className="flex items-center gap-2 text-sm min-w-0 w-full cursor-pointer select-none">
       <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} />
-      <span className="truncate">{label}</span>
+      <span className="truncate flex-1">{label}</span>
     </label>
   );
 }

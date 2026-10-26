@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { isInternalClient } from "@/lib/constants";
 import { reviewItems } from "@/lib/review";
 import type { ReviewItem } from "@/lib/types";
-import { Banner, Metric } from "./bits";
+import { Banner, Metric, SectionTitle, SimpleTable } from "./bits";
 import { hrs1, pct1 } from "./format";
 import { formatMonth } from "./month-picker";
 import type { View } from "./view";
@@ -66,13 +66,29 @@ export function ReviewTab({ view, onSaved }: { view: View; onSaved: () => void }
   return (
     <div className="space-y-4">
       <Banner tone="info">
-        A flag means review, not reduce. Over-hours can be planned investment (onboarding, seasonal peaks). Outstanding commitments stay visible next to each flag.
+        <strong>Review &amp; Action Tracking:</strong> A flag prompts strategic review, not automatic hour reductions. Over-hours may represent planned investments (onboarding, seasonal peaks). Saved actions are permanently preserved in the central audit history log, visible to all users across data refreshes and API pulls.
       </Banner>
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant={scope === "month" ? "default" : "outline"} onClick={() => setScope("month")}>
+        <Button
+          size="sm"
+          className={
+            scope === "month"
+              ? "rounded-full font-bold uppercase text-[11px] tracking-wider bg-[#121212] text-white shadow-[2px_2px_0px_#b5018b]"
+              : "rounded-full font-bold uppercase text-[11px] tracking-wider border border-border/80 bg-white text-foreground hover:bg-[#121212] hover:text-white"
+          }
+          onClick={() => setScope("month")}
+        >
           Reporting month ({formatMonth(view.asOf)})
         </Button>
-        <Button size="sm" variant={scope === "range" ? "default" : "outline"} onClick={() => setScope("range")}>
+        <Button
+          size="sm"
+          className={
+            scope === "range"
+              ? "rounded-full font-bold uppercase text-[11px] tracking-wider bg-[#121212] text-white shadow-[2px_2px_0px_#b5018b]"
+              : "rounded-full font-bold uppercase text-[11px] tracking-wider border border-border/80 bg-white text-foreground hover:bg-[#121212] hover:text-white"
+          }
+          onClick={() => setScope("range")}
+        >
           Trend range ({formatMonth(view.range[0])} – {formatMonth(view.range[1])})
         </Button>
       </div>
@@ -87,22 +103,27 @@ export function ReviewTab({ view, onSaved }: { view: View; onSaved: () => void }
             <Metric label="Under / data missing" value={String(rows.filter((r) => r.direction === "Under" || r.direction === "Data missing").length)} />
           </div>
           <div className="flex items-center justify-between gap-3 pt-1">
-            <span className="text-xs text-muted-foreground font-medium">
+            <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">
               Flagged active client accounts ({rows.length})
             </span>
             <div className="flex items-center gap-3">
-              {note && <span className="text-xs text-muted-foreground">{note}</span>}
-              <Button onClick={save} disabled={saving} size="sm">
+              {note && <span className="text-xs text-muted-foreground font-medium">{note}</span>}
+              <Button
+                onClick={save}
+                disabled={saving}
+                size="sm"
+                className="rounded-full font-bold uppercase text-[11px] tracking-wider bg-[#121212] hover:bg-[#b5018b] text-white shadow-[2px_2px_0px_#99d132] px-4 transition-all"
+              >
                 {saving ? "Saving…" : "Save actions"}
               </Button>
             </div>
           </div>
-          <div className="overflow-auto rounded-md border">
+          <div className="overflow-auto rounded-xl border border-border/80 shadow-xs">
             <table className="w-full text-xs">
-              <thead className="bg-muted/50 text-left">
+              <thead className="bg-[#b5018b] text-white border-b-2 border-[#b5018b] text-left">
                 <tr>
                   {["Client", "Month", "Flag", "Direction", "Var (h)", "Var %", "Open deliverables", "Account owner", "Reason for over/under delivery", "Is issue Temporary or recurring", "Action", "Action owner", "Deadline", "Hours adj.", "Status", "Notes", "Complete"].map((h) => (
-                    <th key={h} className="whitespace-nowrap px-2 py-2 font-medium">{h}</th>
+                    <th key={h} className="whitespace-nowrap px-2.5 py-2.5 font-bold uppercase tracking-wider text-white text-[11px]">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -145,9 +166,83 @@ export function ReviewTab({ view, onSaved }: { view: View; onSaved: () => void }
               </tbody>
             </table>
           </div>
-          <div className="flex items-center gap-3">
-            <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save actions"}</Button>
-            {note && <span className="text-xs text-muted-foreground">{note}</span>}
+          <div className="flex items-center gap-3 pt-2">
+            <Button
+              onClick={save}
+              disabled={saving}
+              size="sm"
+              className="rounded-full font-bold uppercase text-[11px] tracking-wider bg-[#121212] hover:bg-[#b5018b] text-white shadow-[2px_2px_0px_#99d132] px-5 py-2 transition-all cursor-pointer"
+            >
+              {saving ? "Saving…" : "Save actions"}
+            </Button>
+            {note && (
+              <span className="text-xs font-semibold text-[#b5018b] bg-[#b5018b]/10 px-3 py-1 rounded-full border border-[#b5018b]/30">
+                {note}
+              </span>
+            )}
+          </div>
+
+          {/* Saved Action History Log (actions_log.csv audit trail) */}
+          <div className="space-y-2 pt-4">
+            <SectionTitle badge="AUDIT LOG" subtitle="All historical and active review actions recorded in actions_log.csv. Preserved across refreshes and API pulls.">
+              Saved Action History &amp; Weekly Summary
+            </SectionTitle>
+            <div className="max-h-80 overflow-auto rounded-xl border border-border/80 shadow-xs bg-card">
+              {view.payload.actionsLog.length === 0 ? (
+                <div className="p-8 text-center text-xs text-muted-foreground font-light">
+                  No saved actions logged yet. Edit flagged accounts above and click &quot;Save actions&quot; to log them.
+                </div>
+              ) : (
+                <SimpleTable
+                  stickyHeader
+                  rows={view.payload.actionsLog}
+                  columns={[
+                    { key: "client", label: "Client", className: "font-bold text-foreground" },
+                    { key: "month", label: "Month", className: "tabular-nums" },
+                    {
+                      key: "flag_type",
+                      label: "Flag",
+                      render: (r) => (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#4b439d]/15 text-[#4b439d] dark:text-[#a5b4fc] border border-[#4b439d]/25">
+                          {r.flag_type}
+                        </span>
+                      ),
+                    },
+                    { key: "reason", label: "Reason", className: "font-medium" },
+                    { key: "action", label: "Agreed Action", className: "font-medium text-foreground" },
+                    { key: "owner", label: "Owner", className: "font-semibold text-[#b5018b]" },
+                    { key: "deadline", label: "Deadline", className: "tabular-nums" },
+                    {
+                      key: "status",
+                      label: "Status",
+                      render: (r) => {
+                        const st = (r.status || "Open").toLowerCase();
+                        const cls = st.includes("resolved") || st.includes("complete")
+                          ? "bg-[#99d132]/15 text-[#2e5904] dark:text-[#99d132] border-[#99d132]/35"
+                          : st.includes("progress")
+                          ? "bg-[#01abc8]/15 text-[#01abc8] border-[#01abc8]/35"
+                          : "bg-[#b5018b]/15 text-[#b5018b] border-[#b5018b]/35";
+                        return (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border shadow-2xs ${cls}`}>
+                            {r.status || "Open"}
+                          </span>
+                        );
+                      },
+                    },
+                    { key: "notes", label: "Notes", className: "max-w-xs truncate" },
+                    {
+                      key: "updated_at",
+                      label: "Logged At",
+                      render: (r) => (
+                        <span className="text-[11px] font-mono text-muted-foreground tabular-nums">
+                          {r.updated_at ? r.updated_at.replace("T", " ").slice(0, 16) : "—"}
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
+              )}
+            </div>
           </div>
         </>
       )}

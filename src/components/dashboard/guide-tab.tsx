@@ -17,32 +17,36 @@ export function GuideTab({ threshold }: { threshold: number }) {
   return (
     <div className="max-w-3xl space-y-6 text-sm">
       <div>
-        <h2 className="text-sm font-medium">Metric definitions</h2>
-        <div className="mt-2 overflow-auto rounded-md border">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-foreground border-b-2 border-[#4b439d]/25 pb-1 mb-2">Metric definitions</h2>
+        <div className="mt-2 overflow-auto rounded-xl border border-border/80 shadow-xs">
           <SimpleTable
             rows={DEFINITIONS.map(([metric, definition, source]) => ({ metric, definition, source }))}
             columns={[
-              { key: "metric", label: "Metric" },
-              { key: "definition", label: "Definition", className: "whitespace-normal" },
-              { key: "source", label: "Source" },
+              { key: "metric", label: "Metric", className: "font-bold text-foreground min-w-[160px]" },
+              { key: "definition", label: "Definition", className: "whitespace-normal text-foreground/90 font-normal leading-relaxed" },
+              {
+                key: "source",
+                label: "Source",
+                className: "whitespace-nowrap text-xs",
+                render: (r) => (
+                  <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#4b439d]/15 text-[#4b439d] dark:text-[#a5b4fc] border border-[#4b439d]/30 shadow-2xs">
+                    {r.source}
+                  </span>
+                ),
+              },
             ]}
           />
         </div>
       </div>
-      <div className="space-y-2 text-xs leading-relaxed text-muted-foreground">
-        <h2 className="text-sm font-medium text-foreground">Business rules</h2>
-        <p>Review threshold: ±{threshold}% monthly and contract-to-date. Change it in the sidebar. The default lives in the app config.</p>
-        <p>A flag is a review trigger. It is not an instruction to reduce delivery.</p>
-        <p>Retainer work stays separate from separately commissioned projects. Use the work type filter.</p>
-        <p>Non-billable client time (senior support, rework) is always shown on its own.</p>
-        <p>Contract changes apply from their effective date, never retrospectively.</p>
-        <p>Missing or stale source data is flagged. It is never displayed as zero.</p>
-        <p>Duplicate Everhour entries are removed by entry ID. Unmapped client names are listed so they can be fixed in client_mapping.csv.</p>
-        <h2 className="pt-2 text-sm font-medium text-foreground">Storage and refresh</h2>
-        <p>
-          CSV files are stored in the private Supabase bucket dashboard-data. Until the Supabase URL and service role key are set in this app&apos;s .env, the dashboard reads the same files from the local data_files folder. Saving a review action appends a row to actions_log.csv and keeps the previous rows as history.
-          When the data source is set to api, Pull from Everhour / Monday overwrites the Everhour and Monday CSVs, then the dashboard recalculates from those files.
-        </p>
+      <div className="space-y-3 text-xs leading-relaxed text-foreground/85 font-normal">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-foreground border-b-2 border-[#4b439d]/25 pb-1 pt-2">Business rules</h2>
+        <p><strong className="font-bold text-foreground">Review threshold:</strong> ±{threshold}% monthly and contract-to-date. Change it in the sidebar. The default lives in the app config.</p>
+        <p><strong className="font-bold text-foreground">Review trigger:</strong> A flag is a review trigger. It is not an instruction to reduce delivery.</p>
+        <p><strong className="font-bold text-foreground">Work types:</strong> Retainer work stays separate from separately commissioned projects. Use the work type filter.</p>
+        <p><strong className="font-bold text-foreground">Client time:</strong> Non-billable client time (senior support, rework) is always shown on its own.</p>
+        <p><strong className="font-bold text-foreground">Effective dates:</strong> Contract changes apply from their effective date, never retrospectively.</p>
+        <p><strong className="font-bold text-foreground">Data integrity:</strong> Missing or stale source data is flagged. It is never displayed as zero.</p>
+        <p><strong className="font-bold text-foreground">Deduplication:</strong> Duplicate Everhour entries are removed by entry ID. Unmapped client names are listed so they can be fixed in client_mapping.csv.</p>
       </div>
     </div>
   );

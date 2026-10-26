@@ -86,7 +86,8 @@ export function MonthDatePicker({
                   key={name}
                   type="button"
                   size="sm"
-                  variant={key === value ? "secondary" : "ghost"}
+                  variant={key === value ? "default" : "ghost"}
+                  className={key === value ? "bg-[#b5018b] text-white hover:bg-[#b5018b]/90 font-bold shadow-xs" : undefined}
                   disabled={!enabled}
                   onClick={() => {
                     onChange(key);

@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-outfit), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-raleway), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-outfit), var(--font-sans);
+  --font-heading: var(--font-raleway), var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,72 +49,73 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --background: #f7f7f8;
+  --foreground: #121212;
+  --card: #ffffff;
+  --card-foreground: #121212;
+  --popover: #ffffff;
+  --popover-foreground: #121212;
+  --primary: #121212;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f0f2;
+  --secondary-foreground: #121212;
+  --muted: #f1f1f4;
+  --muted-foreground: #5a5a65;
+  --accent: #f4e8f1;
+  --accent-foreground: #b5018b;
+  --destructive: #dc2626;
+  --border: #e2e2e7;
+  --input: #dcdcde;
+  --ring: #b5018b;
+  /* Verkeer Brand Chart Colors (PDF & Website Aligned) */
+  --chart-1: #b5018b; /* Dataset 1 - Plum / Magenta */
+  --chart-2: #4b439d; /* Dataset 2 - Indigo / Deep Purple */
+  --chart-3: #121212; /* Dataset 3 - Off-Black / Charcoal */
+  --chart-4: #01abc8; /* Dataset 4 - Cyan / Electric Blue */
+  --chart-5: #99d132; /* Dataset 5 - Lime / Vibrant Green */
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #121212;
+  --sidebar-primary: #121212;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f4e8f1;
+  --sidebar-accent-foreground: #b5018b;
+  --sidebar-border: #e5e5ea;
+  --sidebar-ring: #b5018b;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0d0d0f;
+  --foreground: #f4f4f6;
+  --card: #151518;
+  --card-foreground: #f4f4f6;
+  --popover: #151518;
+  --popover-foreground: #f4f4f6;
+  --primary: #f4f4f6;
+  --primary-foreground: #121212;
+  --secondary: #1f1f24;
+  --secondary-foreground: #f4f4f6;
+  --muted: #1f1f24;
+  --muted-foreground: #9ca3af;
+  --accent: #2e1026;
+  --accent-foreground: #f472b6;
+  --destructive: #ef4444;
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.16);
+  --ring: #b5018b;
+  --chart-1: #e024b4;
+  --chart-2: #635bff;
+  --chart-3: #f4f4f6;
+  --chart-4: #22d3ee;
+  --chart-5: #a3e635;
+  --sidebar: #131316;
+  --sidebar-foreground: #f4f4f6;
+  --sidebar-primary: #b5018b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #261724;
+  --sidebar-accent-foreground: #f472b6;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-ring: #b5018b;
 }
 
 @layer base {
@@ -123,6 +124,7 @@
   }
   body {
     @apply bg-background text-sm text-foreground;
+    font-family: var(--font-raleway), sans-serif;
   }
   [data-slot="tabs-content"][inert] {
     display: none;
@@ -130,6 +132,79 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Verkeer signature brand gradients */
+.verkeer-gradient-purple-pink {
+  background: #b5018b;
+  background: linear-gradient(315deg, #b5018b 0%, #4b439d 100%);
+}
+
+.verkeer-gradient-blue-purple {
+  background: #4b439d;
+  background: linear-gradient(315deg, #4b439d 0%, #01abc8 100%);
+}
+
+.verkeer-gradient-blue-green {
+  background: #99d132;
+  background: linear-gradient(315deg, #99d132 0%, #01abc8 100%);
+}
+
+.verkeer-gradient-pink-blue {
+  background: #01abc8;
+  background: linear-gradient(315deg, #01abc8 0%, #b5018b 100%);
+}
+
+.verkeer-gradient-full {
+  background: linear-gradient(135deg, #b5018b 0%, #4b439d 35%, #01abc8 70%, #99d132 100%);
+}
+
+/* Verkeer signature pill buttons with color offset backing */
+.verkeer-btn-pink {
+  position: relative;
+  border-radius: 9999px;
+  background: #121212;
+  color: #ffffff;
+  transition: all 0.2s ease;
+  box-shadow: 3px 3px 0px #b5018b;
+}
+.verkeer-btn-pink:hover {
+  background: #b5018b;
+  color: #ffffff;
+  box-shadow: 3px 3px 0px #121212;
+}
+
+.verkeer-btn-green {
+  position: relative;
+  border-radius: 9999px;
+  background: #121212;
+  color: #ffffff;
+  transition: all 0.2s ease;
+  box-shadow: 3px 3px 0px #99d132;
+}
+.verkeer-btn-green:hover {
+  background: #99d132;
+  color: #121212;
+  box-shadow: 3px 3px 0px #121212;
+}
+
+/* PDF Guidelines: Heading bottom borders */
+.verkeer-heading-border {
+  border-bottom: 2px solid #4b439d;
+  padding-bottom: 6px;
+}
+.verkeer-subheading-border {
+  border-bottom: 2px solid #b5018b;
+  padding-bottom: 4px;
+}
+
+/* PDF Guidelines: Table heading format */
+.verkeer-table-heading th {
+  background-color: #b5018b !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 @keyframes indeterminate-bar {
@@ -146,4 +221,59 @@
 
 .animate-indeterminate {
   animation: indeterminate-bar 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Firefox standard scrollbars */
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(181, 1, 139, 0.45) transparent;
+  }
+  .dark * {
+    scrollbar-color: rgba(224, 36, 180, 0.45) transparent;
+  }
+}
+
+::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(181, 1, 139, 0.45) !important;
+  border-radius: 9999px !important;
+}
+
+::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #b5018b !important;
+}
+
+.dark ::-webkit-scrollbar-thumb,
+.dark *::-webkit-scrollbar-thumb {
+  background-color: rgba(224, 36, 180, 0.45) !important;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover,
+.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: #e024b4 !important;
+}
+
+::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-corner {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }

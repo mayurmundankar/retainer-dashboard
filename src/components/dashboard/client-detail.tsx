@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMemo, useState } from "react";
 import {
   Bar,
   CartesianGrid,
@@ -10,19 +9,27 @@ import {
   Line,
   LineChart,
   ResponsiveContainer,
-  Scatter,
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Banner, ChartBox, Metric, SectionTitle, SimpleTable } from "./bits";
-import { ChartTooltip, series, seriesColor, tick } from "./charts";
-import { hrs1, pct1, signedPct, statusLabel } from "./format";
+import { ChartTooltip, series, tick } from "./charts";
+import { hrs1, signedPct, statusLabel } from "./format";
 import { formatMonth } from "./month-picker";
+import type { ContractRow } from "@/lib/types";
 import type { View } from "./view";
 
-function isProjectContract(c: { service?: string; contract_id?: string; billing_model?: string; notes?: string }): boolean {
-  const text = `${c.service || ""} ${c.contract_id || ""} ${c.billing_model || ""} ${c.notes || ""}`.toLowerCase();
-  return text.includes("project");
+function isProjectContract(c: ContractRow): boolean {
+  const cid = (c.contract_id || "").toLowerCase();
+  const cname = (c.client || "").toLowerCase();
+  return cid.startsWith("project-") || cname.includes("project");
 }
 
 export function ClientTab({ view }: { view: View }) {
@@ -42,9 +49,24 @@ export function ClientTab({ view }: { view: View }) {
   const selected = clientList.includes(client) ? client : defaultClient;
   if (!clientList.length) return <Banner tone="info">Select at least one client in the sidebar.</Banner>;
 
-  const cdf = view.payload.fact
-    .filter((r) => r.client === selected && r.month >= view.range[0] && r.month <= view.range[1])
-    .sort((a, b) => a.month.localeCompare(b.month));
+  // Rounded whole-number data for all charts to prevent long decimal display
+  const cdf = useMemo(() => {
+    return view.payload.fact
+      .filter((r) => r.client === selected && r.month >= view.range[0] && r.month <= view.range[1])
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .map((r) => ({
+        ...r,
+        actual_hours: r.actual_hours != null ? Math.round(r.actual_hours) : null,
+        remaining_estimate: r.remaining_estimate != null ? Math.round(r.remaining_estimate) : null,
+        contracted_hours: r.contracted_hours != null ? Math.round(r.contracted_hours) : null,
+        allocated_hours: r.allocated_hours != null ? Math.round(r.allocated_hours) : null,
+        planned_hours: r.planned_hours != null ? Math.round(r.planned_hours) : null,
+        forecast_hours: r.forecast_hours != null ? Math.round(r.forecast_hours) : null,
+        ctd_actual: r.ctd_actual != null ? Math.round(r.ctd_actual) : null,
+        ctd_contracted: r.ctd_contracted != null ? Math.round(r.ctd_contracted) : null,
+      }));
+  }, [view.payload.fact, selected, view.range]);
+
   const row = view.payload.fact.find((r) => r.client === selected && r.month === view.asOf);
   const contracts = view.payload.contracts.filter((c) => c.client === selected);
   const info = view.payload.clientInfo.find((c) => c.client === selected);
@@ -54,9 +76,6 @@ export function ClientTab({ view }: { view: View }) {
   const history = view.payload.actionsLog
     .filter((a) => a.client === selected)
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-  const cats = view.payload.categories;
-  const nbData = cdf.map((r) => ({ month: r.month, ...r.nb }));
-  const activeNbCats = cats.filter((c) => nbData.some((row) => (((row as Record<string, unknown>)[c] as number) ?? 0) > 0));
 
   const linkList: { label: string; href?: string; text?: string }[] = [];
   if (info) {
@@ -85,16 +104,32 @@ export function ClientTab({ view }: { view: View }) {
 
   return (
     <div className="space-y-5">
-      <Select value={selected} onValueChange={(v) => v && setClient(v)} items={clientList.map((c) => ({ value: c, label: c }))}>
-        <SelectTrigger className="w-full max-w-sm shadow-xs border-border/80" size="sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {clientList.map((c) => (
-            <SelectItem key={c} value={c}>{c}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* Client Selector Header per feedback.md */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-border/80 bg-card shadow-xs">
+        <div className="space-y-0.5">
+          <label htmlFor="client-selector" className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+            <span className="size-2.5 rounded-full bg-[#b5018b]" />
+            Select Client Account:
+          </label>
+          <p className="text-[11px] text-muted-foreground font-light">
+            Drill into specific client contracts, delivery history, and deliverables. To filter the overall portfolio, use the sidebar.
+          </p>
+        </div>
+        <div className="min-w-[280px]">
+          <Select value={selected} onValueChange={(v) => v && setClient(v)} items={clientList.map((c) => ({ value: c, label: c }))}>
+            <SelectTrigger id="client-selector" className="w-full shadow-xs border-border/80 font-bold text-[#b5018b]" size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {clientList.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       <div>
         <SectionTitle badge="CONTRACT SUMMARY">Contract context</SectionTitle>
@@ -110,10 +145,10 @@ export function ClientTab({ view }: { view: View }) {
                   const isProj = isProjectContract(r);
                   return (
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold capitalize border shadow-xs ${
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider border shadow-xs ${
                         isProj
-                          ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/25"
-                          : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/25"
+                          ? "bg-[#4b439d]/15 text-[#4b439d] dark:text-[#a5b4fc] border-[#4b439d]/30"
+                          : "bg-[#b5018b]/15 text-[#b5018b] dark:text-[#f472b6] border-[#b5018b]/30"
                       }`}
                     >
                       {isProj ? "project" : "client"}
@@ -146,7 +181,6 @@ export function ClientTab({ view }: { view: View }) {
           <div className="space-y-1">
             <div><span className="text-muted-foreground">Owner </span>{info.owner || "—"}</div>
             <div><span className="text-muted-foreground">Support </span>{info.support || "—"}</div>
-            {/* <div><span className="text-muted-foreground">Escalation </span>{info.escalation || "—"}</div> */}
             <div><span className="text-muted-foreground">Start date </span>{info.start_date || "—"}</div>
             <div><span className="text-muted-foreground">Hours </span>{info.hours_lines || "—"}</div>
           </div>
@@ -175,7 +209,6 @@ export function ClientTab({ view }: { view: View }) {
           </SectionTitle>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
             <Metric label="Contracted" value={`${hrs1(row.contracted_hours)} h`} hint={row.partial_month ? "partial month" : null} />
-            {/* <Metric label="Allocated" value={`${hrs1(row.allocated_hours)} h`} /> */}
             <Metric label="Billable" value={`${hrs1(row.planned_hours)} h`} />
             <Metric label="Actual" value={row.actual_hours == null ? "missing" : `${hrs1(row.actual_hours)} h`} />
             <Metric label="Forecast" value={row.forecast_hours == null ? "—" : `${hrs1(row.forecast_hours)} h`} hint={signedPct(row.variance_pct)} />
@@ -193,110 +226,127 @@ export function ClientTab({ view }: { view: View }) {
         </div>
       )}
 
-      <div className="grid gap-3 xl:grid-cols-2">
-        <ChartBox title={`Monthly hours · ${formatMonth(view.range[0])} – ${formatMonth(view.range[1])}`}>
+      {/* Main Charts: Monthly hours (without distracting scatter circle markers) + Contract-to-date trend */}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <ChartBox
+          title={`Monthly hours · ${formatMonth(view.range[0])} – ${formatMonth(view.range[1])}`}
+          subtitle="Monthly delivered actuals + remaining estimate vs contracted baseline (whole hours, zero decimals)"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart key={view.range.join(":")} data={cdf} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="var(--border)" vertical={false} />
               <XAxis dataKey="month" tick={tick} />
-              <YAxis tick={tick} width={40} />
+              <YAxis tick={tick} width={45} tickFormatter={(v) => `${Math.round(v)}`} />
               <ChartTooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="actual_hours" name="Actual" stackId="h" fill={series.actual} />
               <Bar dataKey="remaining_estimate" name="Remaining est." stackId="h" fill={series.allocated} radius={[3, 3, 0, 0]} />
-              {/* <Line dataKey="allocated_hours" name="Allocated" stroke={series.forecast} strokeDasharray="4 4" dot={false} /> */}
-              <Line dataKey="contracted_hours" name="Contracted" stroke={series.contracted} dot={false} />
-              <Scatter dataKey="planned_hours" name="Billable" fill={series.planned} />
+              <Line dataKey="contracted_hours" name="Contracted" stroke={series.contracted} dot={false} strokeWidth={2} />
             </ComposedChart>
           </ResponsiveContainer>
         </ChartBox>
-        <ChartBox title="Contract-to-date (resets on renewal)">
+
+        <ChartBox
+          title="Contract-to-date cumulative hours (resets on renewal)"
+          subtitle="Cumulative contracted hours vs cumulative actual hours delivered across active term"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <LineChart key={view.range.join(":")} data={cdf} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid stroke="var(--border)" vertical={false} />
               <XAxis dataKey="month" tick={tick} />
-              <YAxis tick={tick} width={44} />
+              <YAxis tick={tick} width={45} tickFormatter={(v) => `${Math.round(v)}`} />
               <ChartTooltip />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Line dataKey="ctd_contracted" name="CTD contracted" stroke={series.contracted} strokeWidth={2} dot={false} />
-              <Line dataKey="ctd_actual" name="CTD actual" stroke={series.forecast} strokeWidth={2} dot={false} />
+              <Line dataKey="ctd_contracted" name="Contract-to-date contracted" stroke={series.contracted} strokeWidth={2} dot={false} />
+              <Line dataKey="ctd_actual" name="Contract-to-date actual" stroke={series.forecast} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </ChartBox>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-2">
-        <div>
-          <SectionTitle>Deliverables – {view.asOf}</SectionTitle>
-          <div className="mt-2 max-h-80 overflow-auto rounded-md border">
-            <SimpleTable
-              rows={items}
-              columns={[
-                { key: "task_name", label: "Task" },
-                { key: "discipline", label: "Discipline" },
-                { key: "owner", label: "Owner" },
-                { key: "status", label: "Status" },
-                { key: "planned_hours", label: "Planned", render: (r) => hrs1(r.planned_hours) },
-                { key: "remaining_estimate_hours", label: "Remaining", render: (r) => hrs1(r.remaining_estimate_hours) },
-                { key: "work_type", label: "Work type" },
-              ]}
-            />
-          </div>
-        </div>
-        <div>
-          <SectionTitle badge="EVERHOUR API">
-            Non-billable client time · {formatMonth(view.range[0])} – {formatMonth(view.range[1])}
-          </SectionTitle>
-          {activeNbCats.length === 0 ? (
-            <div className="mt-2 rounded-lg border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground bg-muted/10">
-              No non-billable client time recorded from Everhour for this period.
-            </div>
-          ) : (
-            <div className="mt-2 h-72 rounded-lg border border-border/70 bg-gradient-to-b from-card to-card/60 p-2 shadow-xs">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={nbData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="month" tick={tick} />
-                  <YAxis tick={tick} width={40} />
-                  <ChartTooltip />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {activeNbCats.map((c, i) => (
-                    <Bar
-                      key={c}
-                      dataKey={c}
-                      stackId="nb"
-                      fill={seriesColor(i)}
-                      radius={i === activeNbCats.length - 1 ? [3, 3, 0, 0] : undefined}
-                    />
-                  ))}
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+      {/* Deliverables Table (Full Width for clarity) */}
+      <div className="space-y-2">
+        <SectionTitle badge="DELIVERABLES" subtitle={`Scheduled tasks and deliverables for ${selected} in ${view.asOf}`}>
+          Deliverables – {view.asOf}
+        </SectionTitle>
+        <div className="max-h-80 overflow-auto rounded-xl border border-border/80 shadow-xs bg-card">
+          <SimpleTable
+            stickyHeader
+            rows={items}
+            columns={[
+              { key: "task_name", label: "Task", className: "font-semibold text-foreground min-w-[200px]" },
+              { key: "discipline", label: "Discipline" },
+              { key: "owner", label: "Owner" },
+              { key: "status", label: "Status" },
+              { key: "planned_hours", label: "Planned", render: (r) => `${hrs1(r.planned_hours)} h` },
+              { key: "remaining_estimate_hours", label: "Remaining", render: (r) => `${hrs1(r.remaining_estimate_hours)} h` },
+              { key: "work_type", label: "Work type" },
+            ]}
+          />
         </div>
       </div>
 
-      {history.length > 0 && (
-        <div>
-          <SectionTitle>Action history</SectionTitle>
-          <div className="mt-2 overflow-auto rounded-md border">
+      {/* Action History Table (Full Width for clarity) */}
+      <div className="space-y-2">
+        <SectionTitle badge="ACTIONS" subtitle={`Audit trail of all review actions, root causes, and owner commitments recorded for ${selected}`}>
+          Action history
+        </SectionTitle>
+        <div className="max-h-80 overflow-auto rounded-xl border border-border/80 shadow-xs bg-card">
+          {history.length === 0 ? (
+            <div className="p-8 text-center text-xs text-muted-foreground font-light">
+              No past review actions recorded for {selected} yet. Log actions in the Review tab to track them here.
+            </div>
+          ) : (
             <SimpleTable
+              stickyHeader
               rows={history}
               columns={[
-                { key: "month", label: "Month" },
-                { key: "flag_type", label: "Flag" },
-                { key: "reason", label: "Reason" },
-                { key: "action", label: "Action" },
-                { key: "owner", label: "Owner" },
-                { key: "deadline", label: "Deadline" },
-                { key: "status", label: "Status" },
-                { key: "notes", label: "Notes" },
-                { key: "updated_at", label: "Updated" },
+                { key: "month", label: "Month", className: "font-bold text-foreground tabular-nums" },
+                {
+                  key: "flag_type",
+                  label: "Flag",
+                  render: (r) => (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#4b439d]/15 text-[#4b439d] dark:text-[#a5b4fc] border border-[#4b439d]/25">
+                      {r.flag_type}
+                    </span>
+                  ),
+                },
+                { key: "reason", label: "Reason", className: "font-medium" },
+                { key: "action", label: "Agreed Action", className: "font-medium text-foreground" },
+                { key: "owner", label: "Owner", className: "font-semibold text-[#b5018b]" },
+                { key: "deadline", label: "Deadline", className: "tabular-nums" },
+                {
+                  key: "status",
+                  label: "Status",
+                  render: (r) => {
+                    const st = (r.status || "Open").toLowerCase();
+                    const cls = st.includes("resolved") || st.includes("complete")
+                      ? "bg-[#99d132]/15 text-[#2e5904] dark:text-[#99d132] border-[#99d132]/35"
+                      : st.includes("progress")
+                      ? "bg-[#01abc8]/15 text-[#01abc8] border-[#01abc8]/35"
+                      : "bg-[#b5018b]/15 text-[#b5018b] border-[#b5018b]/35";
+                    return (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border shadow-2xs ${cls}`}>
+                        {r.status || "Open"}
+                      </span>
+                    );
+                  },
+                },
+                { key: "notes", label: "Notes", className: "max-w-xs truncate" },
+                {
+                  key: "updated_at",
+                  label: "Logged At",
+                  render: (r) => (
+                    <span className="text-[11px] font-mono text-muted-foreground tabular-nums">
+                      {r.updated_at ? r.updated_at.replace("T", " ").slice(0, 16) : "—"}
+                    </span>
+                  ),
+                },
               ]}
             />
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

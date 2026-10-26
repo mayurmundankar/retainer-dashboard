@@ -1,29 +1,28 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { statusColor, statusLabel } from "./format";
 
 export function Metric({ label, value, hint }: { label: string; value: string; hint?: string | null }) {
   return (
-    <div className="min-w-0 p-3 rounded-lg border border-border/70 bg-gradient-to-br from-card via-card to-muted/20 shadow-xs hover:border-primary/20 transition-all">
-      <div className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground">{label}</div>
-      <div className="truncate text-2xl font-light tabular-nums tracking-tight mt-0.5 text-foreground">{value}</div>
-      {hint ? <div className="text-[11px] leading-snug text-muted-foreground mt-0.5 truncate">{hint}</div> : null}
+    <div className="min-w-0 p-3.5 rounded-xl border border-border/80 bg-card shadow-xs hover:border-[#b5018b]/50 hover:shadow-[2px_2px_0px_#b5018b] transition-all">
+      <div className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground">{label}</div>
+      <div className="truncate text-2xl font-bold tabular-nums tracking-tight mt-0.5 text-foreground">{value}</div>
+      {hint ? <div className="text-[11px] leading-snug text-muted-foreground mt-0.5 truncate font-light">{hint}</div> : null}
     </div>
   );
 }
 
 export function Banner({ tone, children }: { tone: "warn" | "info" | "bad" | "ok"; children: ReactNode }) {
   const cls = {
-    warn: "bg-muted text-foreground",
-    info: "bg-card text-muted-foreground",
+    warn: "border-[#ea580c]/30 bg-[#ea580c]/10 text-foreground",
+    info: "border-[#4b439d]/30 bg-[#4b439d]/5 text-foreground",
     bad: "border-destructive/30 bg-destructive/10 text-destructive",
-    ok: "bg-card text-foreground",
+    ok: "border-[#99d132]/40 bg-[#99d132]/10 text-foreground",
   }[tone];
   return (
-    <div className={cn("rounded-lg px-3.5 py-2.5 text-sm leading-relaxed ring-1 ring-foreground/10 bg-gradient-to-r from-card to-card/60 shadow-xs", cls)}>
+    <div className={cn("rounded-xl px-4 py-2.5 text-sm leading-relaxed border shadow-xs font-normal", cls)}>
       {children}
     </div>
   );
@@ -31,7 +30,7 @@ export function Banner({ tone, children }: { tone: "warn" | "info" | "bad" | "ok
 
 export function StatusBadge({ status }: { status: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs">
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium">
       <span className="size-2 rounded-full shadow-xs" style={{ background: statusColor(status) }} />
       {statusLabel(status)}
     </span>
@@ -46,10 +45,10 @@ export function CtdVarBadge({ v, threshold = 10 }: { v: number | null | undefine
     ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/25"
     : isUnder
     ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25"
-    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25";
+    : "bg-[#99d132]/15 text-[#3a660a] dark:text-[#99d132] border-[#99d132]/35";
   const sign = v > 0 ? "+" : "";
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold tabular-nums border shadow-xs ${cls}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums border shadow-xs ${cls}`}>
       {sign}{v.toFixed(1)}%
     </span>
   );
@@ -57,9 +56,9 @@ export function CtdVarBadge({ v, threshold = 10 }: { v: number | null | undefine
 
 export function Disclosure({ title, children, open = false }: { title: string; children: ReactNode; open?: boolean }) {
   return (
-    <details open={open} className="rounded-md border bg-card/60 shadow-xs">
-      <summary className="cursor-pointer px-3 py-2 text-xs font-medium">{title}</summary>
-      <div className="max-h-96 overflow-auto border-t">{children}</div>
+    <details open={open} className="rounded-xl border border-border/80 bg-card/80 shadow-xs">
+      <summary className="cursor-pointer px-3.5 py-2 text-xs font-semibold text-foreground/90 uppercase tracking-wide">{title}</summary>
+      <div className="max-h-96 overflow-auto border-t border-border/40">{children}</div>
     </details>
   );
 }
@@ -74,13 +73,13 @@ export function SectionTitle({
   subtitle?: string;
 }) {
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1 pb-1 border-b-2 border-[#4b439d]/20">
       {badge && (
-        <div className="text-[10px] font-bold tracking-[0.2em] text-lime-600 dark:text-lime-400 uppercase">
+        <div className="text-[10px] font-bold tracking-[0.2em] text-[#b5018b] uppercase">
           {badge}
         </div>
       )}
-      <h2 className="text-base font-semibold tracking-tight text-foreground flex items-center gap-2">
+      <h2 className="text-base font-bold tracking-tight text-foreground flex items-center gap-2 uppercase">
         {children}
       </h2>
       {subtitle && <p className="text-xs text-muted-foreground font-light">{subtitle}</p>}
@@ -109,20 +108,24 @@ export function SimpleTable<T>({
   stickyHeader?: boolean;
 }) {
   return (
-    <Table className="text-sm border-collapse">
-      <TableHeader className={stickyHeader ? "sticky top-0 z-20 bg-card border-b shadow-xs" : undefined}>
-        <TableRow className="border-b bg-muted/30">
+    <table className="w-full text-sm border-separate border-spacing-0">
+      <thead>
+        <tr className="bg-[#b5018b]">
           {columns.map((c) => (
-            <TableHead
+            <th
               key={c.key}
               title={c.tooltip}
-              className={cn("h-9 whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-muted-foreground/90", c.headerClassName || c.className)}
+              className={cn(
+                "h-9 px-3 py-2 text-left whitespace-nowrap text-xs font-bold uppercase tracking-wider text-white border-b-2 border-[#820164]",
+                stickyHeader ? "sticky top-0 z-20 bg-[#b5018b]" : "bg-[#b5018b]",
+                c.headerClassName
+              )}
             >
               {c.tooltip ? (
                 <Tooltip>
-                  <TooltipTrigger className="inline-flex items-center gap-1 cursor-help hover:text-foreground transition-colors group/th">
+                  <TooltipTrigger className="inline-flex items-center gap-1 cursor-help hover:text-white/80 transition-colors group/th">
                     <span>{c.label}</span>
-                    <span className="text-[10px] text-muted-foreground/60 border border-muted-foreground/30 rounded-full size-3.5 inline-flex items-center justify-center font-normal group-hover/th:text-foreground group-hover/th:border-foreground/50">
+                    <span className="text-[10px] text-white/70 border border-white/40 rounded-full size-3.5 inline-flex items-center justify-center font-normal group-hover/th:text-white group-hover/th:border-white">
                       ?
                     </span>
                   </TooltipTrigger>
@@ -133,38 +136,39 @@ export function SimpleTable<T>({
               ) : (
                 c.label
               )}
-            </TableHead>
+            </th>
           ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+        </tr>
+      </thead>
+      <tbody>
         {rows.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={columns.length} className="text-muted-foreground py-4 text-center">
+          <tr>
+            <td colSpan={columns.length} className="text-muted-foreground py-6 text-center text-xs">
               {empty}
-            </TableCell>
-          </TableRow>
+            </td>
+          </tr>
         ) : (
           rows.map((row, i) => (
-            <TableRow key={i} className="group hover:bg-muted/40 transition-colors">
+            <tr key={i} className="group hover:bg-[#f4e8f1]/30 transition-colors">
               {columns.map((c) => (
-                <TableCell key={c.key} className={cn("whitespace-nowrap py-2", c.className)}>
+                <td key={c.key} className={cn("whitespace-nowrap px-3 py-2 text-foreground/90 font-normal border-b border-border/40", c.className)}>
                   {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? "")}
-                </TableCell>
+                </td>
               ))}
-            </TableRow>
+            </tr>
           ))
         )}
-      </TableBody>
-    </Table>
+      </tbody>
+    </table>
   );
 }
 
-export function ChartBox({ title, children }: { title: string; children: ReactNode }) {
+export function ChartBox({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <Card size="sm" className="min-w-0 border-border/70 bg-gradient-to-b from-card to-card/60 shadow-xs">
-      <CardHeader className="border-b border-border/40 pb-2">
-        <CardTitle className="text-sm font-semibold tracking-tight text-foreground">{title}</CardTitle>
+    <Card size="sm" className="min-w-0 border border-border/80 bg-card rounded-xl shadow-xs">
+      <CardHeader className="border-b-2 border-[#4b439d]/15 pb-2 pt-3 px-4">
+        <CardTitle className="text-xs font-bold tracking-wider uppercase text-foreground/90">{title}</CardTitle>
+        {subtitle && <p className="text-[11px] font-normal text-muted-foreground mt-0.5 leading-snug">{subtitle}</p>}
       </CardHeader>
       <CardContent className="h-80 pt-3">{children}</CardContent>
     </Card>
