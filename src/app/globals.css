@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -122,15 +121,12 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
+  html, body {
     @apply bg-background text-sm text-foreground;
-    font-family: var(--font-raleway), sans-serif;
+    font-family: var(--font-raleway), ui-sans-serif, system-ui, sans-serif;
   }
   [data-slot="tabs-content"][inert] {
     display: none;
-  }
-  html {
-    @apply font-sans;
   }
 }
 
