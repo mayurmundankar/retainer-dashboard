@@ -438,6 +438,7 @@ export function Dashboard() {
           <div className="flex flex-wrap items-start justify-between gap-4 pb-5 border-b-2 border-[#4b439d]/25">
             <div className="flex items-center gap-4">
               <img src="/verkeer-logo.svg" alt="Verkeer" className="h-13 w-auto object-contain dark:brightness-110" />
+              <div className="h-12 w-[2px] bg-[#121212] shrink-0 self-center" aria-hidden="true" />
               <div className="space-y-0.5">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground uppercase">
                   Retainer, Capacity &amp; Overservicing Dashboard
