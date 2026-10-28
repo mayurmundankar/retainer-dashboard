@@ -170,9 +170,24 @@ export function Dashboard() {
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
       <aside className="flex w-64 shrink-0 flex-col gap-5 overflow-y-auto overflow-x-hidden border-r border-border/70 bg-gradient-to-b from-sidebar via-sidebar to-sidebar/95 px-4 py-5 shadow-xs">
-        {/* <div className="flex items-center gap-2.5 px-0.5 pb-2 border-b-2 border-[#4b439d]/20">
-          <img src="/verkeer-logo.svg" alt="Verkeer" className="h-7 w-auto object-contain dark:brightness-110" />
-        </div> */}
+        {data && (
+          <div className="flex flex-col gap-1.5 pb-3 border-b border-border/70">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Data Sources &amp; Status</span>
+            <div className="flex flex-wrap gap-1.5">
+              {data.freshness.map((f) => (
+                <Badge
+                  key={f.source}
+                  variant={f.state.includes("Check") ? "outline" : "secondary"}
+                  className="shadow-xs text-[10px] font-medium rounded-full px-2 py-0.5 border-border/80"
+                  title={`${f.status}. Covers ${f.period_start || "—"} to ${f.period_end || "—"}. Last success ${ageLabel(f.age_hours)}.`}
+                >
+                  <span className="size-1.5 rounded-full mr-1.5" style={{ backgroundColor: f.state.includes("Check") ? "#ea580c" : "#99d132" }} />
+                  {f.source} · {f.state.includes("Check") ? "Check" : "Fresh"}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex flex-col gap-2.5">
           <Tooltip>
             <TooltipTrigger
@@ -211,7 +226,12 @@ export function Dashboard() {
                 }
               />
               <TooltipContent side="right" className="max-w-xs text-xs">
-                <strong>Fetch Live Data:</strong> Connects to external APIs (Everhour &amp; Monday.com) to synchronize the latest live hours, deliverables, and board records.
+                <div>
+                  <strong>Fetch Live Data:</strong> Connects to external APIs (Everhour &amp; Monday.com) to synchronize the latest live hours, deliverables, and board records.
+                </div>
+                <div className="mt-1.5 font-bold text-[#b5018b]">
+                  ETA: Refresh will take ~2 mins (comprehensive sync).
+                </div>
               </TooltipContent>
             </Tooltip>
           )}
@@ -380,14 +400,17 @@ export function Dashboard() {
               <div className="space-y-1.5">
                 <h3 className="text-lg font-bold text-foreground">Pulling data from APIs…</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed font-light">
-                  Connecting to Everhour &amp; Monday.com boards to fetch updated time entries, contracts, and delivery schedules. This typically takes 30–60 seconds.
+                  Connecting to Everhour &amp; Monday.com boards to fetch updated time entries, contracts, and delivery schedules.
                 </p>
+                <div className="inline-block rounded-full bg-[#b5018b]/10 border border-[#b5018b]/30 px-3 py-1 text-xs font-semibold text-[#b5018b]">
+                  ETA: Refresh will take ~2 minutes. Please keep this tab open.
+                </div>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div className="h-full w-full bg-gradient-to-r from-[#b5018b] via-[#4b439d] to-[#01abc8] animate-indeterminate" />
               </div>
               <div className="text-[11px] text-muted-foreground animate-pulse font-light">
-                Please wait while fresh data is being synchronized…
+                Synchronizing records from Monday.com and Everhour…
               </div>
             </div>
           </div>
@@ -415,7 +438,7 @@ export function Dashboard() {
           <div className="flex flex-wrap items-start justify-between gap-4 pb-5 border-b-2 border-[#4b439d]/25">
             <div className="flex items-center gap-4">
               <img src="/verkeer-logo.svg" alt="Verkeer" className="h-13 w-auto object-contain dark:brightness-110" />
-              <div className="space-y-0.5 border-l-2 border-[#b5018b] pl-3.5">
+              <div className="space-y-0.5">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground uppercase">
                   Retainer, Capacity &amp; Overservicing Dashboard
                 </h1>
@@ -424,21 +447,6 @@ export function Dashboard() {
                 </p>
               </div>
             </div>
-            {data && (
-              <div className="flex flex-wrap justify-end gap-1.5 pt-1">
-                {data.freshness.map((f) => (
-                  <Badge
-                    key={f.source}
-                    variant={f.state.includes("Check") ? "outline" : "secondary"}
-                    className="shadow-xs text-xs font-medium rounded-full px-2.5 py-0.5 border-border/80"
-                    title={`${f.status}. Covers ${f.period_start || "—"} to ${f.period_end || "—"}. Last success ${ageLabel(f.age_hours)}.`}
-                  >
-                    <span className="size-1.5 rounded-full mr-1.5" style={{ backgroundColor: f.state.includes("Check") ? "#ea580c" : "#99d132" }} />
-                    {f.source} · {f.state.includes("Check") ? "Check" : "Fresh"}
-                  </Badge>
-                ))}
-              </div>
-            )}
           </div>
 
           {!workTypes.length && <Banner tone="warn">Select at least one work type.</Banner>}

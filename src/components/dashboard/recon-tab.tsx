@@ -25,11 +25,31 @@ export function ReconTab({ view }: { view: View }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <Metric label="Everhour vs tracker – needs investigation" value={String(investigate)} />
-        <Metric label="Duplicate entries removed" value={String(view.payload.duplicates.length)} />
-        <Metric label="Unmapped client names" value={String(view.payload.unmapped.length)} />
-        <Metric label="Unclassified entries" value={String(view.payload.unclassified.length)} />
-        <Metric label="Client-months missing actuals" value={String(missingRows.length)} />
+        <Metric
+          label="Everhour vs tracker – needs investigation"
+          value={String(investigate)}
+          tooltip="Discrepancies where Everhour logged hours differ from the manual stand-up tracker by more than 1 hour."
+        />
+        <Metric
+          label="Duplicate entries removed"
+          value={String(view.payload.duplicates.length)}
+          tooltip="Duplicate time entries detected and deduplicated by entry ID to prevent double-counting hours."
+        />
+        <Metric
+          label="Unmapped client names"
+          value={String(view.payload.unmapped.length)}
+          tooltip="Raw client names found in Everhour or Monday that do not match canonical names in client_mapping.csv."
+        />
+        <Metric
+          label="Unclassified entries"
+          value={String(view.payload.unclassified.length)}
+          tooltip="Time entries with missing work type (Retainer vs Project) or category classification."
+        />
+        <Metric
+          label="Client-months missing actuals"
+          value={String(missingRows.length)}
+          tooltip="Active contract months where Everhour has zero recorded time entries."
+        />
       </div>
 
       <Disclosure title="Everhour vs stand-up tracker (billable retainer hours)" open>

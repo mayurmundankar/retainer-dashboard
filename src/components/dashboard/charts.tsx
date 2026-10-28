@@ -6,10 +6,10 @@ import { Tooltip } from "recharts";
 export const tick = { fontSize: 11, fill: "var(--muted-foreground)", fontFamily: "var(--font-raleway), sans-serif" };
 
 export const series = {
+  contracted: "var(--chart-2)",
   allocated: "var(--chart-2)",
   forecast: "var(--chart-1)",
-  actual: "var(--chart-3)",
-  contracted: "var(--chart-4)",
+  actual: "var(--chart-4)",
   planned: "var(--chart-5)",
   capacity: "var(--chart-2)",
   muted: "var(--muted-foreground)",

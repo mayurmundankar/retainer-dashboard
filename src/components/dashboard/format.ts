@@ -2,7 +2,7 @@ import type { Fact } from "@/lib/types";
 
 export function statusColor(status: string): string {
   if (status.includes("Over-servicing")) return "#b5018b"; // Verkeer Plum (#b5018b)
-  if (status.includes("Under-servicing")) return "#ea580c"; // Verkeer Alert Orange (#ea580c)
+  if (status.includes("Under-servicing")) return "#01abc8"; // Verkeer Cyan (#01abc8)
   if (status.includes("contract-to-date")) return "#4b439d"; // Verkeer Indigo (#4b439d)
   if (status.includes("On track")) return "#99d132"; // Verkeer Lime Green (#99d132)
   if (status.includes("Data issue")) return "#737373";
@@ -31,7 +31,7 @@ export function pct1(v: number | null | undefined): string {
 export function ctdVarClass(v: number | null | undefined, threshold = 10): string {
   if (v == null || Number.isNaN(v)) return "";
   if (v > threshold) return "bg-[#b5018b]/15 text-[#b5018b] border-[#b5018b]/30";
-  if (v < -threshold) return "bg-[#ea580c]/15 text-[#ea580c] border-[#ea580c]/30";
+  if (v < -threshold) return "bg-[#01abc8]/15 text-[#007f96] dark:text-[#01abc8] border-[#01abc8]/30";
   return "bg-[#99d132]/15 text-[#2e5904] dark:text-[#99d132] border-[#99d132]/35";
 }
 

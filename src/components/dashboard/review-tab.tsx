@@ -97,10 +97,26 @@ export function ReviewTab({ view, onSaved }: { view: View; onSaved: () => void }
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <Metric label="Flags" value={String(rows.length)} />
-            <Metric label="With reason, action, owner & deadline" value={`${done}/${rows.length}`} />
-            <Metric label="Over" value={String(rows.filter((r) => r.direction === "Over").length)} />
-            <Metric label="Under / data missing" value={String(rows.filter((r) => r.direction === "Under" || r.direction === "Data missing").length)} />
+            <Metric
+              label="Flags"
+              value={String(rows.length)}
+              tooltip="Total client accounts exceeding the review threshold (±10% monthly or contract-to-date) or with data missing."
+            />
+            <Metric
+              label="With reason, action, owner & deadline"
+              value={`${done}/${rows.length}`}
+              tooltip="Number of flagged accounts that have complete operational action plans, owners, and deadlines recorded."
+            />
+            <Metric
+              label="Over"
+              value={String(rows.filter((r) => r.direction === "Over").length)}
+              tooltip="Accounts flagged for over-servicing (projected delivery > +10% above contracted baseline)."
+            />
+            <Metric
+              label="Under / data missing"
+              value={String(rows.filter((r) => r.direction === "Under" || r.direction === "Data missing").length)}
+              tooltip="Accounts flagged for under-servicing (projected delivery < -10% below contract) or missing hours."
+            />
           </div>
           <div className="flex items-center justify-between gap-3 pt-1">
             <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">

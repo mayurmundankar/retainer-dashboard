@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Download, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Bar,
@@ -26,6 +27,12 @@ import { isInternalClient } from "@/lib/constants";
 import type { View } from "./view";
 
 export function PortfolioTab({ view }: { view: View }) {
+  // Modal state for filtered CSV downloads
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [selectedClientsForExport, setSelectedClientsForExport] = useState<string[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
+  const [chartBarMode, setChartBarMode] = useState<"both" | "forecast">("both");
+
   // Only list active clients data for that specific month, skipping Verkeer and inactive accounts
   const rows = useMemo(() => {
     return [...view.monthRows]
@@ -44,13 +51,25 @@ export function PortfolioTab({ view }: { view: View }) {
       });
   }, [view.monthRows]);
 
+  const allClientNames = useMemo(() => {
+    const list = rows.length ? rows.map((r) => r.client) : view.trendRows.filter((r) => !isInternalClient(r.client)).map((r) => r.client);
+    return [...new Set(list)].sort((a, b) => a.localeCompare(b));
+  }, [rows, view.trendRows]);
+
+  const handleOpenDownloadModal = () => {
+    setSelectedClientsForExport(allClientNames);
+    setClientSearch("");
+    setDownloadModalOpen(true);
+  };
+
   const contracted = sumMin(rows.map((r) => r.contracted_hours));
   const allocated = sumMin(rows.map((r) => r.allocated_hours));
   const planned = sumMin(rows.map((r) => r.planned_hours));
   const actual = sumMin(rows.map((r) => r.actual_hours));
   const remaining = sumMin(rows.map((r) => r.remaining_estimate));
   const forecast = sumMin(rows.map((r) => r.forecast_hours));
-  const varPct = allocated && forecast != null ? ((forecast - allocated) / allocated) * 100 : null;
+  const baselineHours = contracted ?? allocated;
+  const varPct = baselineHours && forecast != null ? ((forecast - baselineHours) / baselineHours) * 100 : null;
   const reviews = rows.filter((r) => r.review_required).length;
 
   const months = useMemo(() => [...new Set(view.trendRows.map((r) => r.month))].sort(), [view.trendRows]);
@@ -61,6 +80,7 @@ export function PortfolioTab({ view }: { view: View }) {
       const slice = view.trendRows.filter((r) => r.month === month && !isInternalClient(r.client));
       return {
         month,
+        contracted_hours: Math.round(sumNum(slice.map((r) => r.contracted_hours ?? r.allocated_hours))),
         allocated_hours: Math.round(sumNum(slice.map((r) => r.allocated_hours))),
         forecast_hours: Math.round(sumNum(slice.map((r) => r.forecast_hours))),
         actual_hours: Math.round(sumNum(slice.map((r) => r.actual_hours))),
@@ -71,14 +91,18 @@ export function PortfolioTab({ view }: { view: View }) {
 
   // Rounded chart rows for visual overview charts
   const chartRows = useMemo(() => {
-    return rows.map((r) => ({
-      ...r,
-      allocated_hours: r.allocated_hours != null ? Math.round(r.allocated_hours) : 0,
-      forecast_hours: r.forecast_hours != null ? Math.round(r.forecast_hours) : 0,
-      actual_hours: r.actual_hours != null ? Math.round(r.actual_hours) : 0,
-      variance_pct: r.variance_pct != null ? Math.round(r.variance_pct) : null,
-      ctd_variance_pct: r.ctd_variance_pct != null ? Math.round(r.ctd_variance_pct) : null,
-    }));
+    return rows.map((r) => {
+      const contractedVal = r.contracted_hours != null ? Math.round(r.contracted_hours) : (r.allocated_hours != null ? Math.round(r.allocated_hours) : 0);
+      return {
+        ...r,
+        contracted_hours: contractedVal,
+        allocated_hours: r.allocated_hours != null ? Math.round(r.allocated_hours) : 0,
+        forecast_hours: r.forecast_hours != null ? Math.round(r.forecast_hours) : 0,
+        actual_hours: r.actual_hours != null ? Math.round(r.actual_hours) : 0,
+        variance_pct: r.variance_pct != null ? Math.round(r.variance_pct) : null,
+        ctd_variance_pct: r.ctd_variance_pct != null ? Math.round(r.ctd_variance_pct) : null,
+      };
+    });
   }, [rows]);
 
   const heatClients = useMemo(
@@ -100,22 +124,100 @@ export function PortfolioTab({ view }: { view: View }) {
   return (
     <div className="space-y-6">
       {/* 1. Headline Overview Metrics */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-        <Metric label="Contracted" value={hrs0(contracted)} />
-        <Metric label="Allocated" value={hrs0(allocated)} hint="Seasonal allocation where agreed" />
-        <Metric label="Planned (Monday)" value={hrs0(planned)} />
-        <Metric label="Actual (Everhour)" value={hrs0(actual)} hint="Billable delivery hours" />
-        <Metric label="Remaining estimate" value={hrs0(remaining)} />
-        <Metric label="Forecast" value={hrs0(forecast)} hint={varPct == null ? null : `${signedPct(varPct)} vs allocation`} />
-        <Metric label="Accounts to review" value={String(reviews)} hint={`of ${rows.length} active`} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <Metric
+          label="Contracted"
+          value={hrs0(contracted)}
+          tooltip="Signed monthly commitment under client agreement, prorated by days for partial months."
+        />
+        {/* 'Allocated' metric card commented out per user request:
+        <Metric
+          label="Allocated"
+          value={hrs0(allocated)}
+          hint="Seasonal allocation where agreed"
+          tooltip="Agreed delivery allocation for the month. Equals contracted unless a seasonal allocation exists."
+        /> */}
+        <Metric
+          label="Planned (Monday)"
+          value={hrs0(planned)}
+          tooltip="Hours planned on Monday.com boards for this month. Shown separately and never added to forecast."
+        />
+        <Metric
+          label="Actual (Everhour)"
+          value={hrs0(actual)}
+          hint="Billable delivery hours"
+          tooltip="Actual billable delivery hours logged in Everhour to date under current filters."
+        />
+        <Metric
+          label="Remaining estimate"
+          value={hrs0(remaining)}
+          tooltip="Hours still left on open Monday.com tasks this month after logged hours."
+        />
+        <Metric
+          label="Forecast"
+          value={hrs0(forecast)}
+          hint={varPct == null ? null : `${signedPct(varPct)} vs contracted`}
+          tooltip="Projected month-end delivery hours: Actual so far + Remaining estimate. (Formula: Actual + Remaining estimate)."
+        />
+        <Metric
+          label="Accounts to review"
+          value={String(reviews)}
+          hint={`of ${rows.length} active`}
+          tooltip={`Active client accounts exceeding ±${view.threshold}% monthly or contract-to-date variance.`}
+        />
       </div>
 
       {/* 2. Visual Overview Charts (Leading before the detailed table per feedback) */}
       <div className="space-y-4">
-        {/* Full-width Allocated vs Forecast Chart with color key explanation */}
+        {/* Full-width Contracted vs Forecast Chart with Verkeer theme color key explanation */}
         <ChartBox
-          title={`Allocated vs forecast hours – ${formatMonth(view.asOf)}`}
-          subtitle="Forecast bars are color-coded by servicing status: 🟢 On track (±10%), 🔴 Over-servicing (>10%), 🟠 Under-servicing (<-10%), 🟡 Contract-to-date alert. Dot indicates actual hours delivered so far."
+          title={`Contracted vs forecast hours – ${formatMonth(view.asOf)}`}
+          subtitle={
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+              <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs">
+                <span className="font-semibold text-foreground">Forecast status:</span>
+                <span className="inline-flex items-center gap-1 font-medium">
+                  <span className="size-2 rounded-full bg-[#99d132]" /> On track (±10%)
+                </span>
+                <span className="inline-flex items-center gap-1 font-medium">
+                  <span className="size-2 rounded-full bg-[#b5018b]" /> Over-servicing (&gt;10%)
+                </span>
+                <span className="inline-flex items-center gap-1 font-medium">
+                  <span className="size-2 rounded-full bg-[#01abc8]" /> Under-servicing (&lt;-10%)
+                </span>
+                <span className="inline-flex items-center gap-1 font-medium">
+                  <span className="size-2 rounded-full bg-[#4b439d]" /> Contract-to-date alert
+                </span>
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <span className="size-2 rounded-full bg-[#01abc8] inline-block border border-white" /> Dot: Actual so far
+                </span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setChartBarMode("both")}
+                  className={`px-2 py-0.5 rounded-full font-semibold transition-all cursor-pointer ${
+                    chartBarMode === "both"
+                      ? "bg-[#121212] text-white shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  2 Bars (Contracted &amp; Forecast)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChartBarMode("forecast")}
+                  className={`px-2 py-0.5 rounded-full font-semibold transition-all cursor-pointer ${
+                    chartBarMode === "forecast"
+                      ? "bg-[#121212] text-white shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  1 Bar (Forecast Only)
+                </button>
+              </div>
+            </div>
+          }
         >
           <div className="h-full overflow-x-auto">
             <div className="h-full" style={{ minWidth: Math.max(720, chartRows.length * 75) }}>
@@ -125,14 +227,21 @@ export function PortfolioTab({ view }: { view: View }) {
                   <XAxis dataKey="client" tick={tick} interval={0} angle={-35} textAnchor="end" height={85} />
                   <YAxis tick={tick} width={45} tickFormatter={(v) => `${Math.round(v)}`} />
                   <ChartTooltip />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="allocated_hours" name="Allocated" fill={series.allocated} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="forecast_hours" name="Forecast" radius={[3, 3, 0, 0]}>
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    wrapperStyle={{ fontSize: 12, paddingBottom: 10 }}
+                    formatter={(value) => <span className="text-foreground font-semibold px-2">{value}</span>}
+                  />
+                  {chartBarMode === "both" && (
+                    <Bar dataKey="contracted_hours" name="Contracted" fill="#4b439d" radius={[3, 3, 0, 0]} />
+                  )}
+                  <Bar dataKey="forecast_hours" name="Forecast" fill="#b5018b" radius={[3, 3, 0, 0]}>
                     {chartRows.map((r) => (
                       <Cell key={r.client} fill={statusColor(r.status)} />
                     ))}
                   </Bar>
-                  <Scatter dataKey="actual_hours" name="Actual so far" fill={series.actual} />
+                  <Scatter dataKey="actual_hours" name="Actual so far" fill="#01abc8" />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -144,7 +253,7 @@ export function PortfolioTab({ view }: { view: View }) {
           {/* Portfolio Trend Chart */}
           <ChartBox
             title={`Portfolio trend · ${formatMonth(view.range[0])} – ${formatMonth(view.range[1])}`}
-            subtitle="Historical progress of delivery hours across all active retainer clients (whole hours, zero decimals)"
+            subtitle="Historical progress of delivery hours across all active retainer clients"
           >
             <ResponsiveContainer width="100%" height="100%">
               <LineChart key={view.range.join(":")} data={trend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -194,9 +303,10 @@ export function PortfolioTab({ view }: { view: View }) {
           </SectionTitle>
           <Button
             size="sm"
-            className="rounded-full font-bold uppercase text-[11px] tracking-wider border border-border/80 bg-white text-foreground hover:bg-[#121212] hover:text-white transition-all shadow-[2px_2px_0px_#b5018b] cursor-pointer"
-            onClick={() => downloadFact(rows.length ? rows : view.trendRows.filter((r) => !isInternalClient(r.client)))}
+            className="rounded-full font-bold uppercase text-[11px] tracking-wider border border-border/80 bg-white text-foreground hover:bg-[#121212] hover:text-white transition-all shadow-[2px_2px_0px_#b5018b] cursor-pointer inline-flex items-center gap-1.5"
+            onClick={handleOpenDownloadModal}
           >
+            <Download className="size-3.5" />
             Download CSV
           </Button>
         </div>
@@ -210,7 +320,7 @@ export function PortfolioTab({ view }: { view: View }) {
               {
                 key: "status",
                 label: "Status",
-                tooltip: "Account servicing status: Over-servicing (🔴), Under-servicing (🟠), Contract-to-date alert (🟡), or On track (🟢).",
+                tooltip: "Account servicing status: Over-servicing (Plum), Under-servicing (Cyan), Contract-to-date alert (Indigo), or On track (Lime).",
                 headerClassName: "sticky left-0 top-0 z-40 bg-[#b5018b] text-white min-w-[145px] w-[145px] max-w-[145px] border-r border-white/20",
                 className: "sticky left-0 z-10 bg-card group-hover:bg-[#f4e8f1]/50 transition-colors min-w-[145px] w-[145px] max-w-[145px] border-r border-border/40",
                 render: (r) => <StatusBadge status={r.status} />,
@@ -232,7 +342,7 @@ export function PortfolioTab({ view }: { view: View }) {
                 label: "Contracted",
                 tooltip: "Standard monthly contracted hours under client agreement.",
                 render: (r) => (
-                  <span className="tabular-nums">
+                  <span className="tabular-nums font-semibold">
                     {hrs1(r.contracted_hours)}
                     {r.partial_month ? <span className="ml-1 text-[10px] text-muted-foreground font-semibold">PARTIAL</span> : null}
                   </span>
@@ -241,7 +351,7 @@ export function PortfolioTab({ view }: { view: View }) {
               {
                 key: "allocated_hours",
                 label: "Allocated",
-                tooltip: "Agreed monthly allocation for this specific month (accommodates seasonal shifts).",
+                tooltip: "Agreed monthly allocation / contracted baseline for this specific month.",
                 render: (r) => hrs1(r.allocated_hours),
               },
               {
@@ -271,7 +381,7 @@ export function PortfolioTab({ view }: { view: View }) {
               {
                 key: "variance_pct",
                 label: "Var %",
-                tooltip: "Monthly delivery variance: (Forecast - Allocated) / Allocated × 100%.",
+                tooltip: "Monthly delivery variance: (Forecast - Contracted) / Contracted × 100%.",
                 render: (r) => pct1(r.variance_pct),
               },
               {
@@ -316,21 +426,21 @@ export function PortfolioTab({ view }: { view: View }) {
       {heatClients.length > 0 && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <SectionTitle subtitle="Variance % across recent months. Hover any cell to inspect exact allocated, actual, and forecast hours.">
+            <SectionTitle subtitle="Variance % across recent months. Hover any cell to inspect exact contracted, actual, and forecast hours.">
               Monthly variance % · {formatMonth(view.range[0])} – {formatMonth(view.range[1])}
             </SectionTitle>
 
-            {/* Heatmap Color Key Legend */}
+            {/* Heatmap Color Key Legend (Theme Colors Aligned) */}
             <div className="flex flex-wrap items-center gap-3 text-[13px] text-muted-foreground font-medium">
               <span className="font-bold text-foreground">Color key:</span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="size-2.5 rounded-sm bg-[#99d132]" /> On track (±10%)
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm bg-red-500" /> Over delivery (&gt;+10%)
+                <span className="size-2.5 rounded-sm bg-[#b5018b]" /> Over delivery (&gt;+10%)
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="size-2.5 rounded-sm bg-amber-500" /> Under delivery (&lt;-10%)
+                <span className="size-2.5 rounded-sm bg-[#01abc8]" /> Under delivery (&lt;-10%)
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="size-2.5 rounded-sm bg-muted border border-border" /> No active data
@@ -346,8 +456,8 @@ export function PortfolioTab({ view }: { view: View }) {
                     Client
                   </th>
                   {months.map((m) => (
-                    <th key={m} className="px-2 py-2 font-bold text-foreground text-center min-w-[55px]">
-                      {m.slice(2)}
+                    <th key={m} className="px-2.5 py-2 font-bold text-foreground text-center min-w-[76px] whitespace-nowrap">
+                      {formatMonth(m)}
                     </th>
                   ))}
                 </tr>
@@ -362,24 +472,37 @@ export function PortfolioTab({ view }: { view: View }) {
                       const cell = view.trendRows.find((r) => r.client === client && r.month === m);
                       const v = cell?.variance_pct ?? null;
                       const missing = !cell || v == null;
-                      const t = missing ? 0 : Math.max(-40, Math.min(40, v));
-                      const hue = 60 * (1 - t / 40);
                       const roundedVal = v != null ? Math.round(v) : null;
-                      const allocHrs = cell?.allocated_hours != null ? Math.round(cell.allocated_hours) : 0;
+                      const contractHrs = cell?.contracted_hours != null ? Math.round(cell.contracted_hours) : (cell?.allocated_hours != null ? Math.round(cell.allocated_hours) : 0);
                       const actHrs = cell?.actual_hours != null ? Math.round(cell.actual_hours) : 0;
                       const fcHrs = cell?.forecast_hours != null ? Math.round(cell.forecast_hours) : 0;
 
                       const hoverTooltip = missing
-                        ? `${client} (${m}): No active contract / data`
-                        : `${client} (${m}): ${roundedVal! > 0 ? "+" : ""}${roundedVal}% variance | Allocated: ${allocHrs}h | Actual: ${actHrs}h | Forecast: ${fcHrs}h`;
+                        ? `${client} (${formatMonth(m)}): No active contract / data`
+                        : `${client} (${formatMonth(m)}): ${roundedVal! > 0 ? "+" : ""}${roundedVal}% variance | Contracted: ${contractHrs}h | Actual: ${actHrs}h | Forecast: ${fcHrs}h`;
+
+                      let cellBg = "var(--muted)";
+                      let cellColor = "var(--muted-foreground)";
+                      if (!missing && v != null) {
+                        if (Math.abs(v) <= 10) {
+                          cellBg = "rgba(153, 209, 50, 0.22)"; // Verkeer Lime Green
+                          cellColor = "#2e5904";
+                        } else if (v > 10) {
+                          cellBg = "rgba(181, 1, 139, 0.20)"; // Verkeer Plum
+                          cellColor = "#b5018b";
+                        } else {
+                          cellBg = "rgba(1, 171, 200, 0.20)"; // Verkeer Cyan
+                          cellColor = "#007f96";
+                        }
+                      }
 
                       return (
                         <td
                           key={m}
                           className="px-1.5 py-1.5 text-center tabular-nums font-semibold cursor-default text-[11px]"
                           style={{
-                            background: missing ? "var(--muted)" : `hsl(${hue} 55% 48%)`,
-                            color: missing ? "var(--muted-foreground)" : Math.abs(t) > 18 ? "#fff" : "#111",
+                            background: cellBg,
+                            color: cellColor,
                           }}
                           title={hoverTooltip}
                         >
@@ -391,6 +514,136 @@ export function PortfolioTab({ view }: { view: View }) {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Download CSV Filter Modal */}
+      {downloadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="relative flex max-w-lg w-full flex-col max-h-[85vh] rounded-2xl border border-border/80 bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-border/70">
+              <div>
+                <h3 className="text-base font-bold uppercase tracking-tight text-foreground flex items-center gap-2">
+                  <Download className="size-4 text-[#b5018b]" />
+                  Download Accounts CSV
+                </h3>
+                <p className="text-xs text-muted-foreground font-light mt-0.5">
+                  Select specific client accounts to export, or choose all ({selectedClientsForExport.length} of {allClientNames.length} selected).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDownloadModalOpen(false)}
+                className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Quick Actions & Search */}
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Filter clients..."
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  className="w-full h-8.5 rounded-lg border border-border bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#b5018b]"
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-xs pt-1">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedClientsForExport(allClientNames)}
+                    className="text-[11px] font-semibold text-[#b5018b] hover:underline cursor-pointer"
+                  >
+                    Select All ({allClientNames.length})
+                  </button>
+                  <span className="text-muted-foreground">·</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedClientsForExport([])}
+                    className="text-[11px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    Clear All
+                  </button>
+                </div>
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  {selectedClientsForExport.length} selected
+                </span>
+              </div>
+            </div>
+
+            {/* Scrollable list of clients with checkboxes */}
+            <div className="min-h-[160px] max-h-64 overflow-y-auto rounded-xl border border-border/80 bg-background/50 divide-y divide-border/40 p-1">
+              {allClientNames.filter((c) => !clientSearch.trim() || c.toLowerCase().includes(clientSearch.toLowerCase().trim())).length === 0 ? (
+                <div className="py-6 text-center text-xs text-muted-foreground">No matching clients found.</div>
+              ) : (
+                allClientNames
+                  .filter((c) => !clientSearch.trim() || c.toLowerCase().includes(clientSearch.toLowerCase().trim()))
+                  .map((client) => {
+                    const isChecked = selectedClientsForExport.includes(client);
+                    const clientRow = rows.find((r) => r.client === client);
+                    return (
+                      <label
+                        key={client}
+                        className="flex items-center justify-between px-3 py-2 text-xs rounded-lg hover:bg-muted/60 cursor-pointer transition-colors select-none"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() =>
+                              setSelectedClientsForExport((prev) =>
+                                prev.includes(client) ? prev.filter((x) => x !== client) : [...prev, client],
+                              )
+                            }
+                            className="size-3.5 rounded border-border text-[#b5018b] focus:ring-[#b5018b] cursor-pointer"
+                          />
+                          <span className={`truncate font-medium ${isChecked ? "text-foreground" : "text-muted-foreground"}`}>
+                            {client}
+                          </span>
+                        </div>
+                        {clientRow && (
+                          <span className="text-[11px] tabular-nums text-muted-foreground shrink-0 font-light">
+                            {clientRow.contracted_hours ? `${Math.round(clientRow.contracted_hours)}h` : "—"}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/70">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDownloadModalOpen(false)}
+                className="rounded-full text-xs cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={selectedClientsForExport.length === 0}
+                onClick={() => {
+                  const pool = rows.length ? rows : view.trendRows.filter((r) => !isInternalClient(r.client));
+                  const toExport = pool.filter((r) => selectedClientsForExport.includes(r.client));
+                  downloadFact(toExport);
+                  setDownloadModalOpen(false);
+                }}
+                className="rounded-full font-bold uppercase text-[11px] tracking-wider bg-[#121212] hover:bg-[#b5018b] text-white shadow-[2px_2px_0px_#99d132] px-4 cursor-pointer transition-all inline-flex items-center gap-1.5"
+              >
+                <Download className="size-3.5" />
+                Download CSV ({selectedClientsForExport.length})
+              </Button>
+            </div>
           </div>
         </div>
       )}

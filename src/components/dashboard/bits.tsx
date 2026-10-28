@@ -1,16 +1,56 @@
 import type { ReactNode } from "react";
+import { Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { statusColor, statusLabel } from "./format";
 
-export function Metric({ label, value, hint }: { label: string; value: string; hint?: string | null }) {
-  return (
-    <div className="min-w-0 p-3.5 rounded-xl border border-border/80 bg-card shadow-xs hover:border-[#b5018b]/50 hover:shadow-[2px_2px_0px_#b5018b] transition-all">
-      <div className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground">{label}</div>
+export function Metric({
+  label,
+  value,
+  hint,
+  tooltip,
+}: {
+  label: string;
+  value: string;
+  hint?: string | null;
+  tooltip?: string | ReactNode;
+}) {
+  const card = (
+    <div
+      className={cn(
+        "group relative min-w-0 p-3.5 rounded-xl border border-border/80 bg-card shadow-xs transition-all",
+        tooltip
+          ? "cursor-help hover:border-[#b5018b]/60 hover:shadow-[2px_2px_0px_#b5018b]"
+          : "hover:border-[#b5018b]/40 hover:shadow-[2px_2px_0px_#b5018b]",
+      )}
+    >
+      <div className="flex items-center justify-between gap-1.5">
+        <div className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground truncate">{label}</div>
+        {tooltip && (
+          <span className="text-muted-foreground/60 group-hover:text-[#b5018b] transition-colors shrink-0">
+            <Info className="size-3" />
+          </span>
+        )}
+      </div>
       <div className="truncate text-2xl font-bold tabular-nums tracking-tight mt-0.5 text-foreground">{value}</div>
       {hint ? <div className="text-[11px] leading-snug text-muted-foreground mt-0.5 truncate font-light">{hint}</div> : null}
     </div>
+  );
+
+  if (!tooltip) return card;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={card} />
+      <TooltipContent
+        side="top"
+        className="max-w-xs text-xs font-normal leading-relaxed p-2.5 z-50 shadow-lg border border-border/80 bg-popover text-popover-foreground"
+      >
+        <div className="font-bold text-[11px] uppercase tracking-wider text-[#b5018b] mb-1">{label}</div>
+        <div>{tooltip}</div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -42,9 +82,9 @@ export function CtdVarBadge({ v, threshold = 10 }: { v: number | null | undefine
   const isOver = v > threshold;
   const isUnder = v < -threshold;
   const cls = isOver
-    ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/25"
+    ? "bg-[#b5018b]/15 text-[#b5018b] border-[#b5018b]/30"
     : isUnder
-    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25"
+    ? "bg-[#01abc8]/15 text-[#007f96] dark:text-[#01abc8] border-[#01abc8]/30"
     : "bg-[#99d132]/15 text-[#3a660a] dark:text-[#99d132] border-[#99d132]/35";
   const sign = v > 0 ? "+" : "";
   return (
@@ -163,12 +203,12 @@ export function SimpleTable<T>({
   );
 }
 
-export function ChartBox({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+export function ChartBox({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
     <Card size="sm" className="min-w-0 border border-border/80 bg-card rounded-xl shadow-xs">
       <CardHeader className="border-b-2 border-[#4b439d]/15 pb-2 pt-3 px-4">
         <CardTitle className="text-xs font-bold tracking-wider uppercase text-foreground/90">{title}</CardTitle>
-        {subtitle && <p className="text-[11px] font-normal text-muted-foreground mt-0.5 leading-snug">{subtitle}</p>}
+        {subtitle && <div className="text-[11px] font-normal text-muted-foreground mt-0.5 leading-snug">{subtitle}</div>}
       </CardHeader>
       <CardContent className="h-80 pt-3">{children}</CardContent>
     </Card>

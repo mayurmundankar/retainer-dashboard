@@ -207,15 +207,34 @@ export function ClientTab({ view }: { view: View }) {
           <SectionTitle>
             {view.asOf} — {statusLabel(row.status)}
           </SectionTitle>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
-            <Metric label="Contracted" value={`${hrs1(row.contracted_hours)} h`} hint={row.partial_month ? "partial month" : null} />
-            <Metric label="Billable" value={`${hrs1(row.planned_hours)} h`} />
-            <Metric label="Actual" value={row.actual_hours == null ? "missing" : `${hrs1(row.actual_hours)} h`} />
-            <Metric label="Forecast" value={row.forecast_hours == null ? "—" : `${hrs1(row.forecast_hours)} h`} hint={signedPct(row.variance_pct)} />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+            <Metric
+              label="Contracted"
+              value={`${hrs1(row.contracted_hours)} h`}
+              hint={row.partial_month ? "partial month" : null}
+              tooltip="Signed monthly commitment under client agreement, prorated for partial months."
+            />
+            <Metric
+              label="Billable"
+              value={`${hrs1(row.planned_hours)} h`}
+              tooltip="Total billable hours scheduled on Monday.com boards for this month."
+            />
+            <Metric
+              label="Actual"
+              value={row.actual_hours == null ? "missing" : `${hrs1(row.actual_hours)} h`}
+              tooltip="Actual billable delivery hours logged in Everhour so far this month."
+            />
+            <Metric
+              label="Forecast"
+              value={row.forecast_hours == null ? "—" : `${hrs1(row.forecast_hours)} h`}
+              hint={signedPct(row.variance_pct)}
+              tooltip="Projected month-end delivery hours: Actual + Remaining estimate."
+            />
             <Metric
               label="Contract-to-date"
               value={`${Math.round(row.ctd_actual)} / ${Math.round(row.ctd_contracted)} h`}
               hint={signedPct(row.ctd_variance_pct)}
+              tooltip="Cumulative actual delivery hours vs cumulative contracted hours across entire contract term."
             />
           </div>
           {row.ctd_missing_months > 0 && (
