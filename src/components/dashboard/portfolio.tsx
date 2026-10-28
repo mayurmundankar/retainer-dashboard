@@ -350,27 +350,16 @@ export function PortfolioTab({ view }: { view: View }) {
           <SectionTitle badge="PROJECT OVERVIEW" subtitle="Full breakdown of all accounts active during this billing month. CTD = Contract-to-date.">
             Accounts Detail – {formatMonth(view.asOf)}
           </SectionTitle>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              disabled={filteredTableRows.length === 0}
-              className="rounded-full font-bold uppercase text-[11px] tracking-wider border border-border/80 bg-white text-foreground hover:bg-[#121212] hover:text-white transition-all shadow-[2px_2px_0px_#b5018b] cursor-pointer inline-flex items-center gap-1.5"
-              onClick={() => downloadFact(filteredTableRows)}
-              title={`Download CSV with active table filters (${filteredTableRows.length} accounts)`}
-            >
-              <Download className="size-3.5" />
-              Download CSV ({filteredTableRows.length})
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenDownloadModal}
-              className="rounded-full text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-              title="Open download options & selective client checkboxes"
-            >
-              Custom…
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            disabled={rows.length === 0}
+            className="rounded-full font-bold uppercase text-[11px] tracking-wider border border-border/80 bg-white text-foreground hover:bg-[#121212] hover:text-white transition-all shadow-[2px_2px_0px_#b5018b] cursor-pointer inline-flex items-center gap-1.5"
+            onClick={handleOpenDownloadModal}
+            title="Download accounts CSV"
+          >
+            <Download className="size-3.5" />
+            Download CSV
+          </Button>
         </div>
 
         {/* UI Filters for [status, client list, POD] only */}
